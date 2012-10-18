@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <getopt.h>
-#include <sigyn/SigynClient.h>
+#include <phone/PhoneClient.h>
 #include <binder/ProcessState.h>
 
 using namespace android;
@@ -42,7 +42,7 @@ static bool checkresult(const char *str, int result)
 
 // -------------------------------------------------------------------
 
-class MyClient : public SigynClient
+class MyClient : public PhoneClient
 {
 protected:
     virtual void ResponseGetSIMStatus(int token, int result, bool simCardPresent) {
@@ -128,7 +128,7 @@ static void usage(const char *progname)
     printf("Usage:  %s [OPT+] CMD [ARGS+]\n"
 	   "\n"
 	   "   -f               Display unsolicited commands.\n"
-	   "                    The sigyntest program will not terminate\n"
+	   "                    The phonetest program will not terminate\n"
 	   "\n"
 	   "   status           Display the current call status\n"
 	   "   current          Display current calls\n"

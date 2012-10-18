@@ -6,8 +6,8 @@ LOCAL_SRC_FILES:= \
 LOCAL_MODULE:= wifitest
 LOCAL_MODULE_TAGS:=optional
 
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../include
-LOCAL_SHARED_LIBRARIES := libcutils libbinder libutils libwifi
+LOCAL_C_INCLUDES += external/klaatu-services/include
+LOCAL_SHARED_LIBRARIES := libcutils libbinder libutils libklaatu_wifi
 
 include $(BUILD_EXECUTABLE)
 

@@ -1,10 +1,10 @@
-#ifndef _SIGYN_TEST_H
-#define _SIGYN_TEST_H
+#ifndef _PHONE_TEST_H
+#define _PHONE_TEST_H
 
-#include <sigyn/ISigynClient.h>
-#include <sigyn/ISigynService.h>
+#include <phone/IPhoneClient.h>
+#include <phone/IPhoneService.h>
 
-class SigynClient : public android::BnSigynClient
+class PhoneClient : public android::BnPhoneClient
 {
 public:
   virtual void stateChanged(int32_t state,int32_t token,int32_t reason, const android::String16&  number);
@@ -14,23 +14,23 @@ public:
 
 // -------------------------------------------------------------------
 
-class SigynMaster : public android::IBinder::DeathRecipient
+class PhoneMaster : public android::IBinder::DeathRecipient
 {
 public:
-    static android::sp<SigynMaster>& instance();
-    virtual ~SigynMaster();
+    static android::sp<PhoneMaster>& instance();
+    virtual ~PhoneMaster();
 
     void connect(android::ConnectFlags flag);
     void call(const android::String16& number);
 
 private:
-    SigynMaster();
+    PhoneMaster();
     virtual void onFirstRef();
     virtual void binderDied(const android::wp<android::IBinder>& who);
 
 private:
-    android::sp<SigynClient>            mSigynClient;
-    android::sp<android::ISigynService> mSigynService;
+    android::sp<PhoneClient>            mPhoneClient;
+    android::sp<android::IPhoneService> mPhoneService;
 };
 
 #endif

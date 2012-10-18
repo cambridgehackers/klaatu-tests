@@ -6,8 +6,8 @@ LOCAL_SRC_FILES:= \
 LOCAL_MODULE:= phonetest
 LOCAL_MODULE_TAGS:=optional
 
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../include
-LOCAL_SHARED_LIBRARIES := libcutils libbinder libutils libphone
+LOCAL_C_INCLUDES += external/klaatu-services/include
+LOCAL_SHARED_LIBRARIES := libcutils libbinder libutils libklaatu_phone
 
 include $(BUILD_EXECUTABLE)
 

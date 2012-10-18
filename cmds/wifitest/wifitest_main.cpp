@@ -1,12 +1,12 @@
 #include <stdio.h>
-#include <heimd/HeimdClient.h>
+#include <wifi/WifiClient.h>
 #include <binder/ProcessState.h>
 
 using namespace android;
 
 // -------------------------------------------------------------------
 
-class MyClient : public HeimdClient
+class MyClient : public WifiClient
 {
     void State(WifiState state) {
 	printf("State: %d\n", state);
@@ -50,7 +50,7 @@ class MyClient : public HeimdClient
 	       "    speed: %d\n",
 	       info.macaddr.string(), info.ipaddr.string(), info.bssid.string(),
 	       info.ssid.string(), info.network_id, 
-	       HeimdClient::supStateToString(info.supplicant_state),
+	       WifiClient::supStateToString(info.supplicant_state),
 	       info.supplicant_state,
 	       info.rssi, info.link_speed
 	    );
@@ -153,14 +153,14 @@ int main(int argc, char **argv)
     android::sp<MyClient> s = new MyClient();
 
     if (argc == 1) {
-	s->Register(HEIMD_CLIENT_FLAG_ALL);
+	s->Register(WIFI_CLIENT_FLAG_ALL);
 	follow = true;
     }
     else {
 	int i = 1;
 	while (i < argc) {
 	    if (!strcmp(argv[i], "monitor")) {
-		s->Register(HEIMD_CLIENT_FLAG_ALL);
+		s->Register(WIFI_CLIENT_FLAG_ALL);
 		follow = true;
 	    }
 	    else if (!strcmp(argv[i], "driver"))
