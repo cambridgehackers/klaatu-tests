@@ -31,7 +31,6 @@
 #include <media/stagefright/MediaDefs.h>
 #include <media/stagefright/MetaData.h>
 #include <media/stagefright/MPEG4Writer.h>
-#include <media/stagefright/MoofWriter.h>
 #include <media/stagefright/OMXClient.h>
 #include <media/stagefright/OMXCodec.h>
 #include <media/MediaPlayerInterface.h>
@@ -143,8 +142,9 @@ public:
 
     void startPreview(const Params &params) {
         sp<SurfaceComposerClient> surfaceComposerClient = new SurfaceComposerClient();
+        String8 name("cameraPreview");
         sp<SurfaceControl> surfaceControl =
-            surfaceComposerClient->createSurface(0, params.width, params.height, PIXEL_FORMAT_RGB_888);
+            surfaceComposerClient->createSurface(name, params.width, params.height, PIXEL_FORMAT_RGB_888);
 
         SurfaceComposerClient::openGlobalTransaction();
         surfaceControl->setLayer(0x40000000);
