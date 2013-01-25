@@ -31,12 +31,6 @@
 namespace android {
 extern DBusConnection *global_conn;
 
-//typedef union {
-typedef struct {
-    char *str_val;
-    int int_val;
-    char **array_val;
-} property_value;
 typedef struct {
     void (*user_cb)(DBusMessage *, void *, void *);
     void *user;
@@ -62,14 +56,12 @@ void dbus_func_args_async_callback(DBusPendingCall *call, void *data) {
     free(req);
 }
 
-static dbus_bool_t dbus_func_args_async_valist(int timeout_ms, void (*user_cb)(DBusMessage *, void *, void*), void *user, const char *path, const char *ifc, const char *func, int first_arg_type, va_list args) {
-    DBusMessage *msg = NULL;
-    const char *name;
-    dbus_async_call_t *pending;
+static dbus_bool_t dbus_func_args_async_valist(int timeout_ms, void (*user_cb)(DBusMessage *, void *, void*), void *user, const char *path, const char *ifc, const char *func, int first_arg_type, va_list args)
+{
     dbus_bool_t reply = FALSE;
 
     /* Compose the command */
-    msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, path, ifc, func); 
+    DBusMessage *msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, path, ifc, func); 
     if (msg == NULL) {
         printf("Could not allocate D-Bus message object!");
         goto done;
@@ -81,8 +73,9 @@ static dbus_bool_t dbus_func_args_async_valist(int timeout_ms, void (*user_cb)(D
         goto done;
     }
 
+    {
     /* Make the call. */
-    pending = (dbus_async_call_t *)malloc(sizeof(dbus_async_call_t));
+    dbus_async_call_t *pending = (dbus_async_call_t *)malloc(sizeof(dbus_async_call_t));
     if (pending) {
         DBusPendingCall *call; 
         pending->user_cb = user_cb;
@@ -92,6 +85,7 @@ static dbus_bool_t dbus_func_args_async_valist(int timeout_ms, void (*user_cb)(D
         if (reply == TRUE) {
             dbus_pending_call_set_notify(call, dbus_func_args_async_callback, pending, NULL);
         }
+    }
     }
 
 done:
@@ -109,18 +103,16 @@ dbus_bool_t dbus_func_args_async(int timeout_ms, void (*reply)(DBusMessage *, vo
     return ret;
 }
 
-DBusMessage * dbus_func_args_timeout_valist(int timeout_ms, DBusError *err, const char *path, const char *ifc, const char *func, int first_arg_type, va_list args) { 
-    DBusMessage *msg = NULL, *reply = NULL;
-    const char *name;
-    bool return_error = (err != NULL);
-
-    if (!return_error) {
+DBusMessage * dbus_func_args_timeout_valist(int timeout_ms, DBusError *err, const char *path, const char *ifc, const char *func, int first_arg_type, va_list args)
+{ 
+    DBusMessage *reply = NULL;
+    if (err) {
         err = (DBusError*)malloc(sizeof(DBusError));
         dbus_error_init(err);
     }
 
     /* Compose the command */
-    msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, path, ifc, func); 
+    DBusMessage *msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, path, ifc, func); 
     if (msg == NULL) {
         printf("Could not allocate D-Bus message object!");
         goto done;
@@ -134,12 +126,12 @@ DBusMessage * dbus_func_args_timeout_valist(int timeout_ms, DBusError *err, cons
 
     /* Make the call. */
     reply = dbus_connection_send_with_reply_and_block(global_conn, msg, timeout_ms, err);
-    if (!return_error && dbus_error_is_set(err)) {
+    if (err && dbus_error_is_set(err)) {
         LOG_AND_FREE_DBUS_ERROR_WITH_MSG(err, msg);
     }
 
 done:
-    if (!return_error) {
+    if (err) {
         free(err);
     }
     if (msg) dbus_message_unref(msg);
@@ -339,7 +331,7 @@ void append_dict_args(DBusMessage *reply, const char *first_key, ...)
     va_end(var_args);
 }
 
-static int get_property(DBusMessageIter iter, Properties *properties, int *prop_index, property_value *value, int *len)
+static int get_property(DBusMessageIter iter, Properties *properties, int *prop_index, char * *value)
 {
     DBusMessageIter prop_val, array_val_iter;
     char *property = NULL;
@@ -347,8 +339,7 @@ static int get_property(DBusMessageIter iter, Properties *properties, int *prop_
     char *str_val;
     int itemindex = 0, j, int_val;
 
-    value->str_val = NULL;
-    value->int_val = -1;
+    *value = NULL;
     if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
         return -1;
     dbus_message_iter_get_basic(&iter, &property);
@@ -372,24 +363,23 @@ printf("[%s:%d] property '%s'\n", __FUNCTION__, __LINE__, property);
         return -1;
     }
 
+    char inttemp[32];
     switch(type) {
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_OBJECT_PATH:
-        dbus_message_iter_get_basic(&prop_val, &value->str_val);
-        *len = 1;
+        dbus_message_iter_get_basic(&prop_val, value);
         break;
     case DBUS_TYPE_UINT32:
     case DBUS_TYPE_INT16:
     case DBUS_TYPE_BOOLEAN:
         dbus_message_iter_get_basic(&prop_val, &int_val);
-        value->int_val = int_val;
-        *len = 1;
+        sprintf(inttemp, "%d", int_val);
+        *value = strdup(inttemp);
         break;
     case DBUS_TYPE_ARRAY:
         dbus_message_iter_recurse(&prop_val, &array_val_iter);
         array_type = dbus_message_iter_get_arg_type(&array_val_iter);
-        *len = 0;
-        value->array_val = NULL;
+        //value->array_val = NULL;
         if (array_type == DBUS_TYPE_OBJECT_PATH ||
             array_type == DBUS_TYPE_STRING){
             j = 0;
@@ -398,8 +388,8 @@ printf("[%s:%d] property '%s'\n", __FUNCTION__, __LINE__, property);
             } while(dbus_message_iter_next(&array_val_iter));
             dbus_message_iter_recurse(&prop_val, &array_val_iter);
             // Allocate  an array of char *
-            *len = j;
-            char **tmp = (char **)malloc(sizeof(char *) * *len);
+            //*len = j;
+            char **tmp = (char **)malloc(sizeof(char *) * j);
             if (!tmp)
                 return -1;
             j = 0;
@@ -407,7 +397,7 @@ printf("[%s:%d] property '%s'\n", __FUNCTION__, __LINE__, property);
                dbus_message_iter_get_basic(&array_val_iter, &tmp[j]);
                j ++;
             } while(dbus_message_iter_next(&array_val_iter));
-            value->array_val = tmp;
+            //value->array_val = tmp;
         }
         break;
     default:
@@ -416,7 +406,7 @@ printf("[%s:%d] property '%s'\n", __FUNCTION__, __LINE__, property);
     return 0;
 }
 
-static void create_prop_array(Vector<String8> strArray, Properties *property, property_value *value, int len, int *array_index ) {
+static void create_prop_array(Vector<String8> strArray, Properties *property, char * *value, int len, int *array_index ) {
     char **prop_val = NULL;
     char buf[32] = {'\0'}, buf1[32] = {'\0'};
     int i; 
@@ -425,11 +415,11 @@ static void create_prop_array(Vector<String8> strArray, Properties *property, pr
     //set_object_array_element(strArray, name, *array_index);
     *array_index += 1; 
     if (prop_type == DBUS_TYPE_UINT32 || prop_type == DBUS_TYPE_INT16) {
-        sprintf(buf, "%d", value->int_val);
+        //sprintf(buf, "%d", value->int_val);
         //set_object_array_element(strArray, buf, *array_index);
         *array_index += 1;
     } else if (prop_type == DBUS_TYPE_BOOLEAN) {
-        sprintf(buf, "%s", value->int_val ? "true" : "false"); 
+        //sprintf(buf, "%s", value->int_val ? "true" : "false"); 
         //set_object_array_element(strArray, buf, *array_index);
         *array_index += 1;
     } else if (prop_type == DBUS_TYPE_ARRAY) {
@@ -437,13 +427,13 @@ static void create_prop_array(Vector<String8> strArray, Properties *property, pr
         sprintf(buf1, "%d", len);
         //set_object_array_element(strArray, buf1, *array_index);
         *array_index += 1; 
-        prop_val = value->array_val;
+        //prop_val = value->array_val;
         for (i = 0; i < len; i++) {
             //set_object_array_element(strArray, prop_val[i], *array_index);
             *array_index += 1;
         }
     } else {
-        //set_object_array_element(strArray, (const char *) value->str_val, *array_index);
+        //set_object_array_element(strArray, (const char *) *value, *array_index);
         *array_index += 1;
     }
 }
@@ -452,7 +442,7 @@ int parse_properties(BTProperties& prop, DBusMessageIter *iter, Properties *prop
 {
     Vector<String8> result;
     DBusMessageIter dict_entry, dict;
-    property_value value;
+    char * value;
     int i, array_index = 0;
     int prop_type = DBUS_TYPE_INVALID, type;
     int t, j;
@@ -464,21 +454,17 @@ printf("[%s:%d]\n", __FUNCTION__, __LINE__);
         goto failure;
     dbus_message_iter_recurse(iter, &dict);
     do {
-        int len = 0, prop_index = -1;
+        int prop_index = -1;
         if (dbus_message_iter_get_arg_type(&dict) != DBUS_TYPE_DICT_ENTRY)
             goto failure;
         dbus_message_iter_recurse(&dict, &dict_entry); 
-        if (get_property(dict_entry, properties, &prop_index, &value, &len))
+        if (get_property(dict_entry, properties, &prop_index, &value))
             goto failure;
-        char *p = value.str_val;
-        if (!p) {
-            char inttemp[32];
-            p = inttemp;
-            sprintf(inttemp, "%d", value.int_val);
-        }
+        char *p = value;
+        if (!p)
+            p = (char *)"(none)";
         result.push(String8(p));
         //values[prop_index].value = value;
-        //values[prop_index].len = len;
     } while(dbus_message_iter_next(&dict)); 
     return 0;
 failure:
@@ -491,21 +477,18 @@ int parse_property_change(BTProperties& prop, DBusMessage *msg, Properties *prop
     DBusMessageIter iter;
     DBusError err;
     Vector<String8> strArray;
-    int len = 0, prop_index = -1;
+    int prop_index = -1;
     int array_index = 0, size = 0;
-    property_value value;
+    char * value;
 
     dbus_error_init(&err);
     if (!dbus_message_iter_init(msg, &iter))
         goto failure;
 
-    if (!get_property(iter, properties, &prop_index, &value, &len)) {
-        size += 2;
-        if (properties[prop_index].type == DBUS_TYPE_ARRAY)
-            size += len;
-        //create_prop_array(strArray, &properties[prop_index], &value, len, &array_index); 
-        if (properties[prop_index].type == DBUS_TYPE_ARRAY && value.array_val != NULL)
-             free(value.array_val); 
+    if (!get_property(iter, properties, &prop_index, &value)) {
+        //create_prop_array(strArray, &properties[prop_index], &value, &array_index); 
+        //if (properties[prop_index].type == DBUS_TYPE_ARRAY && value.array_val != NULL)
+             //free(value.array_val); 
 printf("[%s:%d]\n", __FUNCTION__, __LINE__);
         return 0;
     }
