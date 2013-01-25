@@ -100,6 +100,8 @@ static Vector<String8> getSinkPropertiesNative(String8 path) {
     DBusError err;
     dbus_error_init(&err);
 Vector<String8> result;
+BTProperties prop;
+    int rc = -1;
 
     const char *c_path = path.string();
     reply = dbus_func_args_timeout(-1, c_path, "org.bluez.AudioSink", "GetProperties", DBUS_TYPE_INVALID);
@@ -112,7 +114,7 @@ Vector<String8> result;
     }
     DBusMessageIter iter;
     if (dbus_message_iter_init(reply, &iter))
-        return parse_properties(&iter, sink_properties);
+        rc = parse_properties(prop, &iter, sink_properties);
     return result;
 }
 
@@ -308,10 +310,11 @@ static DBusHandlerResult event_filter(DBusConnection *conn, DBusMessage *msg, vo
     uint16_t uuid; 
     bool exists = TRUE;
     DBusMessageIter iter;
-    Vector<String8> str_array;
     char *c_object_path;
     const char *c_channel_path;
     const char *c_path;
+BTProperties prop;
+    int rc = -1;
 
     dbus_error_init(&err); 
     int sigvalue = findsignal(sigtable, msg);
@@ -325,9 +328,9 @@ static DBusHandlerResult event_filter(DBusConnection *conn, DBusMessage *msg, vo
             dbus_message_iter_get_basic(&iter, &c_address);
 printf("[%s:%d] found %s\n", __FUNCTION__, __LINE__, c_address);
             if (dbus_message_iter_next(&iter))
-                str_array = parse_properties(&iter, remote_device_properties);
+                rc = parse_properties(prop, &iter, remote_device_properties);
         }
-        if (!str_array.size())
+        if (rc)
             goto failed;
         //c_address), str_array);
         break;
@@ -351,22 +354,26 @@ printf("[%s:%d] found %s\n", __FUNCTION__, __LINE__, c_address);
         break;
     case BSIG_AdapterPropertyChanged:
 printf("[%s:%d] start\n", __FUNCTION__, __LINE__);
-        str_array = parse_property_change(msg, adapter_properties);
-        if (!str_array.size())
+        rc = parse_property_change(prop, msg, adapter_properties);
+        if (rc)
             goto failed;
+{
+    Vector<String8> str_array;
         /* Check if bluetoothd has (re)started, if so update the path. */
+if (0)
         if (!strncmp(str_array[0].string(), "Powered", strlen("Powered"))) {
             String8 value = str_array[1];
             const char *c_value = value.string();
             if (!strncmp(c_value, "true", strlen("true")))
                 global_adapter = get_adapter_path(global_conn);
         }
+}
         //JAVA(method_onPropertyChanged, str_array);
         break;
     case BSIG_DevicePropertyChanged: {
 printf("[%s:%d]\n", __FUNCTION__, __LINE__);
-        str_array = parse_property_change(msg, remote_device_properties);
-        if (!str_array.size())
+        rc = parse_property_change(prop, msg, remote_device_properties);
+        if (rc)
             goto failed;
         const char *remote_device_path = dbus_message_get_path(msg);
         //remote_device_path), str_array);
@@ -379,16 +386,16 @@ printf("[%s:%d]\n", __FUNCTION__, __LINE__);
         }
     case BSIG_InputDevicePropertyChanged:
 printf("[%s:%d]\n", __FUNCTION__, __LINE__);
-        str_array = parse_property_change(msg, input_properties);
-        if (!str_array.size())
+        rc = parse_property_change(prop, msg, input_properties);
+        if (rc)
             goto failed;
         c_path = dbus_message_get_path(msg);
         //c_path), str_array);
         break;
     case BSIG_PanDevicePropertyChanged:
 printf("[%s:%d]\n", __FUNCTION__, __LINE__);
-        str_array = parse_property_change(msg, pan_properties);
-        if (!str_array.size())
+        rc = parse_property_change(prop, msg, pan_properties);
+        if (rc)
             goto failed;
         c_path = dbus_message_get_path(msg);
         //c_path), str_array);
@@ -418,15 +425,15 @@ printf("[%s:%d]\n", __FUNCTION__, __LINE__);
         break;
     case BSIG_HealthDevicePropertyChanged:
 printf("[%s:%d]\n", __FUNCTION__, __LINE__);
-        str_array = parse_property_change(msg, health_device_properties);
-        if (!str_array.size())
+        rc = parse_property_change(prop, msg, health_device_properties);
+        if (rc)
             goto failed;
         c_path = dbus_message_get_path(msg);
         //c_path), str_array);
         break;
     case BSIG_AudioPropertyChanged:
 printf("[%s:%d]\n", __FUNCTION__, __LINE__);
-        str_array = parse_property_change(msg, sink_properties);
+        rc = parse_property_change(prop, msg, sink_properties);
         c_path = dbus_message_get_path(msg);
         break;
     default:
@@ -435,32 +442,11 @@ printf("[%s:%d]\n", __FUNCTION__, __LINE__);
     return DBUS_HANDLER_RESULT_HANDLED;
 failed:
     LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
+printf("[%s:%d] end bad\n", __FUNCTION__, __LINE__);
     return DBUS_HANDLER_RESULT_HANDLED;
 }
-static void *eventLoopMain(void)
+static void process_control(void)
 {
-    int sockvec[2];
-
-printf("[%s:%d]\n", __FUNCTION__, __LINE__);
-    pollData = (struct pollfd *)calloc( DEFAULT_INITIAL_POLLFD_COUNT, sizeof(struct pollfd));
-    watchData = (DBusWatch **)calloc( DEFAULT_INITIAL_POLLFD_COUNT, sizeof(DBusWatch *));
-    if (socketpair(AF_LOCAL, SOCK_STREAM, 0, sockvec)) {
-        ALOGE("Error getting BT control socket");
-        exit(1);
-    }
-    controlFdR = sockvec[0];
-    controlFdW = sockvec[1];
-    pollData[0].fd = controlFdR;
-    pollData[0].events = POLLIN; 
-    dbus_connection_set_watch_functions(global_conn, dbusAddWatch, dbusRemoveWatch, dbusToggleWatch, NULL, NULL);
-    dbus_connection_set_wakeup_main_function(global_conn, dbusWakeup, NULL, NULL); 
- 
-    while (1) {
-        for (int i = 0; i < pollMemberCount; i++) {
-            if (!pollData[i].revents) {
-                continue;
-            }
-            if (pollData[i].fd == controlFdR) {
                 char data;
                 while (recv(controlFdR, &data, sizeof(char), MSG_DONTWAIT) != -1) {
                     switch (data) {
@@ -493,7 +479,7 @@ printf("[%s:%d]\n", __FUNCTION__, __LINE__);
                         int fd = controlFdR;
                         controlFdR = 0;
                         close(fd);
-                        return NULL;
+                        return;
                     }
                     case EVENT_LOOP_ADD: {
                         DBusWatch *watch;
@@ -557,6 +543,32 @@ printf("[%s:%d]\n", __FUNCTION__, __LINE__);
                     }
 switchover:;
                 }
+}
+static void *eventLoopMain(void)
+{
+    int sockvec[2];
+
+printf("[%s:%d]\n", __FUNCTION__, __LINE__);
+    pollData = (struct pollfd *)calloc( DEFAULT_INITIAL_POLLFD_COUNT, sizeof(struct pollfd));
+    watchData = (DBusWatch **)calloc( DEFAULT_INITIAL_POLLFD_COUNT, sizeof(DBusWatch *));
+    if (socketpair(AF_LOCAL, SOCK_STREAM, 0, sockvec)) {
+        ALOGE("Error getting BT control socket");
+        exit(1);
+    }
+    controlFdR = sockvec[0];
+    controlFdW = sockvec[1];
+    pollData[0].fd = controlFdR;
+    pollData[0].events = POLLIN; 
+    dbus_connection_set_watch_functions(global_conn, dbusAddWatch, dbusRemoveWatch, dbusToggleWatch, NULL, NULL);
+    dbus_connection_set_wakeup_main_function(global_conn, dbusWakeup, NULL, NULL); 
+ 
+    while (1) {
+        for (int i = 0; i < pollMemberCount; i++) {
+            if (!pollData[i].revents) {
+                continue;
+            }
+            if (pollData[i].fd == controlFdR) {
+                process_control();
             } else {
 printf("[%s:%d]\n", __FUNCTION__, __LINE__);
                 short events = pollData[i].revents;
@@ -1093,6 +1105,8 @@ static Vector<String8> getDevicePropertiesNative(String8 path)
     Vector<String8> str_array;
     DBusMessage *msg, *reply;
     DBusError err;
+BTProperties prop;
+    int rc = -1;
     dbus_error_init(&err); 
     const char *c_path = path.string();
     reply = dbus_func_args_timeout(-1, c_path, DBUS_DEVICE_IFACE, "GetProperties", DBUS_TYPE_INVALID);
@@ -1105,7 +1119,7 @@ static Vector<String8> getDevicePropertiesNative(String8 path)
     }
     //env->PushLocalFrame(PROPERTIES_NREFS); 
     if (dbus_message_iter_init(reply, &iter))
-       str_array =  parse_properties(&iter, remote_device_properties);
+       rc = parse_properties(prop, &iter, remote_device_properties);
     dbus_message_unref(reply);
     return str_array;
 }
@@ -1116,6 +1130,8 @@ static Vector<String8> getAdapterPropertiesNative()
     DBusMessage *msg, *reply;
     DBusError err;
     dbus_error_init(&err); 
+BTProperties prop;
+    int rc = -1;
     reply = dbus_func_args_timeout(-1, global_adapter, DBUS_ADAPTER_IFACE, "GetProperties", DBUS_TYPE_INVALID);
     if (!reply) {
         if (dbus_error_is_set(&err)) {
@@ -1127,7 +1143,7 @@ static Vector<String8> getAdapterPropertiesNative()
     //env->PushLocalFrame(PROPERTIES_NREFS); 
     DBusMessageIter iter;
     if (dbus_message_iter_init(reply, &iter))
-        str_array = parse_properties(&iter, adapter_properties);
+        rc = parse_properties(prop, &iter, adapter_properties);
     dbus_message_unref(reply);
     return str_array;
 }
@@ -1447,8 +1463,10 @@ static bool destroyChannelNative(String8 devicePath, String8 channelPath, int co
 
 static String8 getMainChannelNative(String8 devicePath) {
     const char *c_device_path = devicePath.string();
+BTProperties prop;
     DBusError err;
     dbus_error_init(&err); 
+    int rc = -1;
     DBusMessage *reply = dbus_func_args(c_device_path, DBUS_HEALTH_DEVICE_IFACE, "GetProperties", DBUS_TYPE_INVALID);
     if (!reply) {
         if (dbus_error_is_set(&err)) {
@@ -1458,7 +1476,7 @@ static String8 getMainChannelNative(String8 devicePath) {
         DBusMessageIter iter;
         Vector<String8> str_array;
         if (dbus_message_iter_init(reply, &iter))
-            str_array = parse_properties(&iter, health_device_properties);
+            rc = parse_properties(prop, &iter, health_device_properties);
         dbus_message_unref(reply);
         String8 path = str_array[1]; 
         return path;
@@ -1468,6 +1486,8 @@ static String8 getMainChannelNative(String8 devicePath) {
 
 static String8 getChannelApplicationNative(String8 channelPath) {
     const char *c_channel_path = channelPath.string();
+BTProperties prop;
+    int rc = -1;
     DBusError err;
     dbus_error_init(&err); 
     DBusMessage *reply = dbus_func_args(c_channel_path, DBUS_HEALTH_CHANNEL_IFACE, "GetProperties", DBUS_TYPE_INVALID);
@@ -1479,7 +1499,7 @@ static String8 getChannelApplicationNative(String8 channelPath) {
         DBusMessageIter iter;
         Vector<String8> str_array;
         if (dbus_message_iter_init(reply, &iter))
-            str_array = parse_properties(&iter, health_channel_properties);
+            rc = parse_properties(prop, &iter, health_channel_properties);
         dbus_message_unref(reply); 
         int len = str_array.size(); 
         String8 name, path;

@@ -448,7 +448,7 @@ static void create_prop_array(Vector<String8> strArray, Properties *property, pr
     }
 }
 
-Vector<String8> parse_properties(DBusMessageIter *iter, Properties *properties)
+int parse_properties(BTProperties& prop, DBusMessageIter *iter, Properties *properties)
 {
     Vector<String8> result;
     DBusMessageIter dict_entry, dict;
@@ -480,14 +480,14 @@ printf("[%s:%d]\n", __FUNCTION__, __LINE__);
         //values[prop_index].value = value;
         //values[prop_index].len = len;
     } while(dbus_message_iter_next(&dict)); 
-    return result;
+    return 0;
 failure:
     if (dbus_error_is_set(&err))
         LOG_AND_FREE_DBUS_ERROR(&err);
-    return result;
+    return 1;
 }
 
-Vector<String8> parse_property_change(DBusMessage *msg, Properties *properties) {
+int parse_property_change(BTProperties& prop, DBusMessage *msg, Properties *properties) {
     DBusMessageIter iter;
     DBusError err;
     Vector<String8> strArray;
@@ -507,12 +507,12 @@ Vector<String8> parse_property_change(DBusMessage *msg, Properties *properties) 
         if (properties[prop_index].type == DBUS_TYPE_ARRAY && value.array_val != NULL)
              free(value.array_val); 
 printf("[%s:%d]\n", __FUNCTION__, __LINE__);
-        return strArray;
+        return 0;
     }
 failure:
 printf("[%s:%d]\n", __FUNCTION__, __LINE__);
     LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
-    return strArray;
+    return 1;
 }
 
 int get_bdaddr(const char *str, bdaddr_t *ba) {

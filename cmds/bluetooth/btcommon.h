@@ -30,6 +30,7 @@
 #include <dbus/dbus.h>
 #include <bluetooth/bluetooth.h>
 #include <utils/Vector.h>
+#include <utils/KeyedVector.h>
 #include <utils/String8.h>
 
 namespace android {
@@ -74,8 +75,9 @@ int dbus_returns_int32(DBusMessage *reply);
 int dbus_returns_uint32(DBusMessage *reply);
 int dbus_returns_unixfd(DBusMessage *reply);
 
-Vector<String8> parse_properties(DBusMessageIter *iter, Properties *properties);
-Vector<String8> parse_property_change(DBusMessage *msg, Properties *properties);
+typedef KeyedVector<String8, String8> BTProperties;
+int parse_properties(BTProperties& prop, DBusMessageIter *iter, Properties *properties);
+int parse_property_change(BTProperties& prop, DBusMessage *msg, Properties *properties);
 void append_dict_args(DBusMessage *reply, const char *first_key, ...);
 void append_variant(DBusMessageIter *iter, int type, void *val);
 int get_bdaddr(const char *str, bdaddr_t *ba);
