@@ -318,7 +318,7 @@ static DBusHandlerResult event_filter(DBusConnection *conn, DBusMessage *msg, vo
     char *c_object_path;
     const char *c_channel_path;
     const char *c_path;
-BTProperties prop;
+    BTProperties prop;
     int rc = -1;
 
     dbus_error_init(&err); 
@@ -331,10 +331,12 @@ BTProperties prop;
     case BSIG_AdapterDeviceFound:
         if (dbus_message_iter_init(msg, &iter)) {
             dbus_message_iter_get_basic(&iter, &c_address);
-printf("[%s:%d] found %s\n", __FUNCTION__, __LINE__, c_address);
             if (dbus_message_iter_next(&iter))
                 rc = parse_properties(prop, &iter); // remote_device_properties);
-dumpprop(prop, "adapterfound");
+            int indexaddr = prop.indexOfKey(String8("Address"));
+            if (indexaddr >= 0)
+                printf("[%s:%d] Address %s\n", __FUNCTION__, __LINE__, prop.valueAt(indexaddr).string());
+            dumpprop(prop, "adapterfound");
         }
         if (rc)
             goto failed;
@@ -358,25 +360,18 @@ dumpprop(prop, "adapterfound");
         ALOGV("... Object Path = %s", c_object_path);
         //c_object_path));
         break;
-    case BSIG_AdapterPropertyChanged:
-printf("[%s:%d] start\n", __FUNCTION__, __LINE__);
+    case BSIG_AdapterPropertyChanged: {
         rc = parse_property_change(prop, msg); // adapter_properties);
         if (rc)
             goto failed;
-dumpprop(prop, "adapterchanged");
-{
-    Vector<String8> str_array;
+        dumpprop(prop, "adapterchanged");
+        int indexaddr = prop.indexOfKey(String8("Powered"));
+        if (indexaddr >= 0)
+            printf("[%s:%d] Powered %s\n", __FUNCTION__, __LINE__, prop.valueAt(indexaddr).string());
         /* Check if bluetoothd has (re)started, if so update the path. */
-if (0)
-        if (!strncmp(str_array[0].string(), "Powered", strlen("Powered"))) {
-            String8 value = str_array[1];
-            const char *c_value = value.string();
-            if (!strncmp(c_value, "true", strlen("true")))
-                global_adapter = get_adapter_path(global_conn);
-        }
-}
         //JAVA(method_onPropertyChanged, str_array);
         break;
+        }
     case BSIG_DevicePropertyChanged: {
 printf("[%s:%d]\n", __FUNCTION__, __LINE__);
         rc = parse_property_change(prop, msg); // remote_device_properties);

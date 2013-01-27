@@ -336,7 +336,7 @@ static int get_property(BTProperties& prop, DBusMessageIter iter)
     DBusMessageIter prop_val, array_val_iter;
     char inttemp[32], *property = NULL;
     uint32_t array_type;
-    int j, int_val;
+    int j, int_val = 0;
     char *value = (char *)"(none)";
 
     if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
@@ -426,9 +426,7 @@ int parse_properties(BTProperties& prop, DBusMessageIter *iter)
 {
     DBusMessageIter dict_entry, dict;
     DBusError err;
-    int i, array_index = 0, prop_type = DBUS_TYPE_INVALID, type, t, j;
 
-printf("[%s:%d]\n", __FUNCTION__, __LINE__);
     dbus_error_init(&err);
     if(dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_ARRAY)
         goto failure;
@@ -451,8 +449,6 @@ int parse_property_change(BTProperties& prop, DBusMessage *msg)
 {
     DBusMessageIter iter;
     DBusError err;
-    Vector<String8> strArray;
-    int array_index = 0, size = 0;
 
     dbus_error_init(&err);
     if (!dbus_message_iter_init(msg, &iter))
@@ -462,7 +458,6 @@ int parse_property_change(BTProperties& prop, DBusMessage *msg)
         //create_prop_array(strArray, &properties[prop_index], &value, &array_index); 
         //if (properties[prop_index].type == DBUS_TYPE_ARRAY && value.array_val != NULL)
              //free(value.array_val); 
-printf("[%s:%d]\n", __FUNCTION__, __LINE__);
         return 0;
     }
 failure:
