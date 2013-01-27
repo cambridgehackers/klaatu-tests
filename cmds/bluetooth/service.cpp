@@ -91,9 +91,13 @@ static DBusConnection *global_conn;
 static const char *global_adapter;  // dbus object name of the local adapter
 static void onConnectSinkResult(DBusMessage *msg, void *user, void *n);
 
-//Vector<String8> parse_input_properties(DBusMessageIter *iter) {
-    //return parse_properties(iter, input_properties);
-//}
+static void dumpprop(BTProperties& prop, const char *name)
+{
+    for (size_t i = 0; i < prop.size(); ++i) {
+        printf("prop %s: %s=%s\n", name, prop.keyAt(i).string(), prop.valueAt(i).string());
+    }
+//indexOfKey
+}
 
 static Vector<String8> getSinkPropertiesNative(String8 path) {
     DBusMessage *msg, *reply;
@@ -114,7 +118,8 @@ BTProperties prop;
     }
     DBusMessageIter iter;
     if (dbus_message_iter_init(reply, &iter))
-        rc = parse_properties(prop, &iter, sink_properties);
+        rc = parse_properties(prop, &iter); // sink_properties);
+dumpprop(prop, "getsink");
     return result;
 }
 
@@ -328,7 +333,8 @@ BTProperties prop;
             dbus_message_iter_get_basic(&iter, &c_address);
 printf("[%s:%d] found %s\n", __FUNCTION__, __LINE__, c_address);
             if (dbus_message_iter_next(&iter))
-                rc = parse_properties(prop, &iter, remote_device_properties);
+                rc = parse_properties(prop, &iter); // remote_device_properties);
+dumpprop(prop, "adapterfound");
         }
         if (rc)
             goto failed;
@@ -354,9 +360,10 @@ printf("[%s:%d] found %s\n", __FUNCTION__, __LINE__, c_address);
         break;
     case BSIG_AdapterPropertyChanged:
 printf("[%s:%d] start\n", __FUNCTION__, __LINE__);
-        rc = parse_property_change(prop, msg, adapter_properties);
+        rc = parse_property_change(prop, msg); // adapter_properties);
         if (rc)
             goto failed;
+dumpprop(prop, "adapterchanged");
 {
     Vector<String8> str_array;
         /* Check if bluetoothd has (re)started, if so update the path. */
@@ -372,9 +379,10 @@ if (0)
         break;
     case BSIG_DevicePropertyChanged: {
 printf("[%s:%d]\n", __FUNCTION__, __LINE__);
-        rc = parse_property_change(prop, msg, remote_device_properties);
+        rc = parse_property_change(prop, msg); // remote_device_properties);
         if (rc)
             goto failed;
+dumpprop(prop, "devchanged");
         const char *remote_device_path = dbus_message_get_path(msg);
         //remote_device_path), str_array);
         break;
@@ -386,17 +394,19 @@ printf("[%s:%d]\n", __FUNCTION__, __LINE__);
         }
     case BSIG_InputDevicePropertyChanged:
 printf("[%s:%d]\n", __FUNCTION__, __LINE__);
-        rc = parse_property_change(prop, msg, input_properties);
+        rc = parse_property_change(prop, msg); // input_properties);
         if (rc)
             goto failed;
+dumpprop(prop, "inpdevchanged");
         c_path = dbus_message_get_path(msg);
         //c_path), str_array);
         break;
     case BSIG_PanDevicePropertyChanged:
 printf("[%s:%d]\n", __FUNCTION__, __LINE__);
-        rc = parse_property_change(prop, msg, pan_properties);
+        rc = parse_property_change(prop, msg); // pan_properties);
         if (rc)
             goto failed;
+dumpprop(prop, "pandevchanged");
         c_path = dbus_message_get_path(msg);
         //c_path), str_array);
         break;
@@ -425,16 +435,18 @@ printf("[%s:%d]\n", __FUNCTION__, __LINE__);
         break;
     case BSIG_HealthDevicePropertyChanged:
 printf("[%s:%d]\n", __FUNCTION__, __LINE__);
-        rc = parse_property_change(prop, msg, health_device_properties);
+        rc = parse_property_change(prop, msg); // health_device_properties);
         if (rc)
             goto failed;
+dumpprop(prop, "healdevchanged");
         c_path = dbus_message_get_path(msg);
         //c_path), str_array);
         break;
     case BSIG_AudioPropertyChanged:
 printf("[%s:%d]\n", __FUNCTION__, __LINE__);
-        rc = parse_property_change(prop, msg, sink_properties);
+        rc = parse_property_change(prop, msg); // sink_properties);
         c_path = dbus_message_get_path(msg);
+dumpprop(prop, "auddevchanged");
         break;
     default:
         goto failed;
@@ -1119,7 +1131,8 @@ BTProperties prop;
     }
     //env->PushLocalFrame(PROPERTIES_NREFS); 
     if (dbus_message_iter_init(reply, &iter))
-       rc = parse_properties(prop, &iter, remote_device_properties);
+       rc = parse_properties(prop, &iter); // remote_device_properties);
+dumpprop(prop, "devprop");
     dbus_message_unref(reply);
     return str_array;
 }
@@ -1143,7 +1156,8 @@ BTProperties prop;
     //env->PushLocalFrame(PROPERTIES_NREFS); 
     DBusMessageIter iter;
     if (dbus_message_iter_init(reply, &iter))
-        rc = parse_properties(prop, &iter, adapter_properties);
+        rc = parse_properties(prop, &iter); // adapter_properties);
+dumpprop(prop, "adapprop");
     dbus_message_unref(reply);
     return str_array;
 }
@@ -1476,7 +1490,8 @@ BTProperties prop;
         DBusMessageIter iter;
         Vector<String8> str_array;
         if (dbus_message_iter_init(reply, &iter))
-            rc = parse_properties(prop, &iter, health_device_properties);
+            rc = parse_properties(prop, &iter); // health_device_properties);
+dumpprop(prop, "mainchan");
         dbus_message_unref(reply);
         String8 path = str_array[1]; 
         return path;
@@ -1499,7 +1514,8 @@ BTProperties prop;
         DBusMessageIter iter;
         Vector<String8> str_array;
         if (dbus_message_iter_init(reply, &iter))
-            rc = parse_properties(prop, &iter, health_channel_properties);
+            rc = parse_properties(prop, &iter); // health_channel_properties);
+dumpprop(prop, "chanapp");
         dbus_message_unref(reply); 
         int len = str_array.size(); 
         String8 name, path;

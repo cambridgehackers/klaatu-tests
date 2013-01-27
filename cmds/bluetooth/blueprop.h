@@ -70,7 +70,7 @@ static CHARMAPTYPE healthmap[] = {
     {BLUEZ_ERROR_IFC ".NotFound", HEALTH_OPERATION_NOT_FOUND},
     {BLUEZ_ERROR_IFC ".NotAllowed", HEALTH_OPERATION_NOT_ALLOWED},
     {NULL, HEALTH_OPERATION_GENERIC_FAILURE}};
-
+#if 0
 static Properties remote_device_properties[] = {
     {"Address",  DBUS_TYPE_STRING}, {"Name", DBUS_TYPE_STRING},
     {"Icon", DBUS_TYPE_STRING}, {"Class", DBUS_TYPE_UINT32},
@@ -117,4 +117,4 @@ static Properties sink_properties[] = {
     {"Connected", DBUS_TYPE_BOOLEAN},
     {"Playing", DBUS_TYPE_BOOLEAN},
     {NULL, 0}};
-
+#endif

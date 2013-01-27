@@ -331,50 +331,32 @@ void append_dict_args(DBusMessage *reply, const char *first_key, ...)
     va_end(var_args);
 }
 
-static int get_property(DBusMessageIter iter, Properties *properties, int *prop_index, char * *value)
+static int get_property(BTProperties& prop, DBusMessageIter iter)
 {
     DBusMessageIter prop_val, array_val_iter;
-    char *property = NULL;
+    char inttemp[32], *property = NULL;
     uint32_t array_type;
-    char *str_val;
-    int itemindex = 0, j, int_val;
+    int j, int_val;
+    char *value = (char *)"(none)";
 
-    *value = NULL;
     if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
         return -1;
     dbus_message_iter_get_basic(&iter, &property);
     if (!dbus_message_iter_next(&iter)
      || dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)
         return -1;
-printf("[%s:%d] property '%s'\n", __FUNCTION__, __LINE__, property);
-    while (properties[itemindex].name) {
-        if (!strncmp(property, properties[itemindex].name, strlen(property)))
-            break;
-        itemindex++;
-    }
-    *prop_index = itemindex;
-    if (!properties[itemindex].name)
-        return -1;
-
     dbus_message_iter_recurse(&iter, &prop_val);
-    int type = properties[itemindex].type;
-    if (dbus_message_iter_get_arg_type(&prop_val) != type) {
-        printf("Property type mismatch in get_property: %d, expected:%d, index:%d", dbus_message_iter_get_arg_type(&prop_val), type, *prop_index);
-        return -1;
-    }
-
-    char inttemp[32];
-    switch(type) {
+    switch(dbus_message_iter_get_arg_type(&prop_val)) {
     case DBUS_TYPE_STRING:
     case DBUS_TYPE_OBJECT_PATH:
-        dbus_message_iter_get_basic(&prop_val, value);
+        dbus_message_iter_get_basic(&prop_val, &value);
         break;
     case DBUS_TYPE_UINT32:
     case DBUS_TYPE_INT16:
     case DBUS_TYPE_BOOLEAN:
         dbus_message_iter_get_basic(&prop_val, &int_val);
         sprintf(inttemp, "%d", int_val);
-        *value = strdup(inttemp);
+        value = strdup(inttemp);
         break;
     case DBUS_TYPE_ARRAY:
         dbus_message_iter_recurse(&prop_val, &array_val_iter);
@@ -403,9 +385,11 @@ printf("[%s:%d] property '%s'\n", __FUNCTION__, __LINE__, property);
     default:
         return -1;
     }
+    prop.add(String8(property), String8(value));
     return 0;
 }
 
+#if 0
 static void create_prop_array(Vector<String8> strArray, Properties *property, char * *value, int len, int *array_index ) {
     char **prop_val = NULL;
     char buf[32] = {'\0'}, buf1[32] = {'\0'};
@@ -437,34 +421,24 @@ static void create_prop_array(Vector<String8> strArray, Properties *property, ch
         *array_index += 1;
     }
 }
-
-int parse_properties(BTProperties& prop, DBusMessageIter *iter, Properties *properties)
+#endif
+int parse_properties(BTProperties& prop, DBusMessageIter *iter)
 {
-    Vector<String8> result;
     DBusMessageIter dict_entry, dict;
-    char * value;
-    int i, array_index = 0;
-    int prop_type = DBUS_TYPE_INVALID, type;
-    int t, j;
+    DBusError err;
+    int i, array_index = 0, prop_type = DBUS_TYPE_INVALID, type, t, j;
 
 printf("[%s:%d]\n", __FUNCTION__, __LINE__);
-    DBusError err;
     dbus_error_init(&err);
     if(dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_ARRAY)
         goto failure;
     dbus_message_iter_recurse(iter, &dict);
     do {
-        int prop_index = -1;
         if (dbus_message_iter_get_arg_type(&dict) != DBUS_TYPE_DICT_ENTRY)
             goto failure;
         dbus_message_iter_recurse(&dict, &dict_entry); 
-        if (get_property(dict_entry, properties, &prop_index, &value))
+        if (get_property(prop, dict_entry))
             goto failure;
-        char *p = value;
-        if (!p)
-            p = (char *)"(none)";
-        result.push(String8(p));
-        //values[prop_index].value = value;
     } while(dbus_message_iter_next(&dict)); 
     return 0;
 failure:
@@ -473,19 +447,18 @@ failure:
     return 1;
 }
 
-int parse_property_change(BTProperties& prop, DBusMessage *msg, Properties *properties) {
+int parse_property_change(BTProperties& prop, DBusMessage *msg)
+{
     DBusMessageIter iter;
     DBusError err;
     Vector<String8> strArray;
-    int prop_index = -1;
     int array_index = 0, size = 0;
-    char * value;
 
     dbus_error_init(&err);
     if (!dbus_message_iter_init(msg, &iter))
         goto failure;
 
-    if (!get_property(iter, properties, &prop_index, &value)) {
+    if (!get_property(prop, iter)) {
         //create_prop_array(strArray, &properties[prop_index], &value, &array_index); 
         //if (properties[prop_index].type == DBUS_TYPE_ARRAY && value.array_val != NULL)
              //free(value.array_val); 

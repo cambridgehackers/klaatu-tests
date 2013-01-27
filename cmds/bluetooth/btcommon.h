@@ -61,10 +61,10 @@ namespace android {
         (err)->name, (err)->message); \
         dbus_error_free((err)); }
 
-typedef struct {
-    const char *name;
-    int type;
-} Properties;
+//typedef struct {
+    //const char *name;
+    //int type;
+//} Properties;
 
 dbus_bool_t dbus_func_args_async(int timeout_ms, void (*reply)(DBusMessage *, void *, void *), void *user, const char *path, const char *ifc, const char *func, int first_arg_type, ...); 
 DBusMessage * dbus_func_args(const char *path, const char *ifc, const char *func, int first_arg_type, ...); 
@@ -76,8 +76,8 @@ int dbus_returns_uint32(DBusMessage *reply);
 int dbus_returns_unixfd(DBusMessage *reply);
 
 typedef KeyedVector<String8, String8> BTProperties;
-int parse_properties(BTProperties& prop, DBusMessageIter *iter, Properties *properties);
-int parse_property_change(BTProperties& prop, DBusMessage *msg, Properties *properties);
+int parse_properties(BTProperties& prop, DBusMessageIter *iter);
+int parse_property_change(BTProperties& prop, DBusMessage *msg);
 void append_dict_args(DBusMessage *reply, const char *first_key, ...);
 void append_variant(DBusMessageIter *iter, int type, void *val);
 int get_bdaddr(const char *str, bdaddr_t *ba);
