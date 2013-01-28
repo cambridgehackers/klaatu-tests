@@ -115,14 +115,48 @@ static dbus_bool_t async_valist(int timeout_ms, void (*user_cb)(DBusMessage *, v
         printf("Could not append argument to method call!");
     }
     else {
-        dbus_async_call_t *pending = (dbus_async_call_t *)malloc(sizeof(dbus_async_call_t));
         DBusPendingCall *call; 
-        pending->user_cb = user_cb;
-        pending->user = user;
-        //pending->method = msg; 
         reply = dbus_connection_send_with_reply(global_conn, msg, &call, timeout_ms);
-        if (reply)
+        if (reply) {
+            dbus_async_call_t *pending = (dbus_async_call_t *)malloc(sizeof(dbus_async_call_t));
+            pending->user_cb = user_cb;
+            pending->user = user;
+            //pending->method = msg; 
             dbus_pending_call_set_notify(call, async_cb, pending, NULL);
+        }
+    }
+    if (msg) dbus_message_unref(msg);
+    return reply;
+}
+static DBusMessage * ato_valist(const char *path, const char *ifc, const char *func, int first_arg_type, va_list args)
+{
+    DBusMessage *reply = NULL;
+    DBusPendingCall *call;
+    DBusError err;
+    DBusMessage *msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, path, ifc, func); 
+    if (!dbus_message_append_args_valist(msg, first_arg_type, args)) {
+        printf("Could not append argument to method call!");
+    }
+    else {
+#if 0
+        reply = dbus_connection_send_with_reply_and_block(global_conn, msg, -1, &err);
+        if (dbus_error_is_set(&err)) {
+            LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
+        }
+#else
+        if (dbus_connection_send_with_reply (global_conn, msg, &call, -1) && call) {
+            dbus_pending_call_block (call);
+            reply = dbus_pending_call_steal_reply (call);
+            dbus_pending_call_unref (call);
+            if (dbus_set_error_from_message (&err, reply)) {
+                dbus_message_unref (reply);
+                reply = NULL;
+            }
+        }
+        if (dbus_error_is_set(&err)) {
+            LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
+        }
+#endif
     }
     if (msg) dbus_message_unref(msg);
     return reply;
@@ -133,23 +167,6 @@ dbus_bool_t dbus_func_async(int timeout_ms, void (*reply)(DBusMessage *, void *,
     dbus_bool_t ret = async_valist(timeout_ms, reply, user, path, ifc, func, first_arg_type, lst);
     va_end(lst);
     return ret;
-}
-static DBusMessage * ato_valist(const char *path, const char *ifc, const char *func, int first_arg_type, va_list args)
-{
-    DBusMessage *reply = NULL;
-    DBusError err;
-    DBusMessage *msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, path, ifc, func); 
-    if (!dbus_message_append_args_valist(msg, first_arg_type, args)) {
-        printf("Could not append argument to method call!");
-    }
-    else {
-        reply = dbus_connection_send_with_reply_and_block(global_conn, msg, -1, &err);
-        if (dbus_error_is_set(&err)) {
-            LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
-        }
-    }
-    if (msg) dbus_message_unref(msg);
-    return reply;
 }
 DBusMessage * dbus_func_args(const char *path, const char *ifc, const char *func, int first_arg_type, ...) {
     va_list lst;
@@ -219,61 +236,6 @@ static bool dbus_returns_boolean(DBusMessage *reply) {
     dbus_message_unref(reply);
     return ret;
 }
-#if 0
-static Vector<String8> dbus_returns_array_of_object_path(DBusMessage *reply) { 
-    DBusError err;
-    char **list;
-    int i, len;
-    Vector<String8> strArray;
-    dbus_error_init(&err);
-    if (dbus_message_get_args (reply, &err, DBUS_TYPE_ARRAY, DBUS_TYPE_OBJECT_PATH, &list, &len, DBUS_TYPE_INVALID)) {
-        String8 classNameStr; 
-        //for (i = 0; i < len; i++)
-            //set_object_array_element(strArray, list[i], i);
-    } else {
-        LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, reply);
-    }
-    dbus_message_unref(reply);
-    return strArray;
-}
-Vector<String8> dbus_returns_array_of_strings(DBusMessage *reply) { 
-    Vector<String8> result;
-    DBusError err;
-    char **list;
-    int i, len;
-    dbus_error_init(&err);
-    if (dbus_message_get_args (reply, &err, DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, &list, &len, DBUS_TYPE_INVALID)) {
-        String8 classNameStr; 
-        printf("%s: there are %d elements in string array!", __FUNCTION__, len); 
-        for (i = 0; i < len; i++)
-            result.push(String8(list[i]));
-    } else {
-        LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, reply);
-    }
-    dbus_message_unref(reply);
-    return result;
-}
-
-jbyteArray dbus_returns_array_of_bytes(DBusMessage *reply) { 
-    DBusError err;
-    int i, len;
-    jbyte *list;
-    jbyteArray byteArray = NULL;
-
-    dbus_error_init(&err);
-    if (dbus_message_get_args(reply, &err, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, &list, &len, DBUS_TYPE_INVALID)) {
-        printf("%s: there are %d elements in byte array!", __FUNCTION__, len);
-        //byteArray = env->NewByteArray(len);
-        //if (byteArray)
-            //env->SetByteArrayRegion(byteArray, 0, len, list); 
-    } else {
-        LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, reply);
-    }
-
-    dbus_message_unref(reply);
-    return byteArray;
-}
-#endif 
 void append_variant(DBusMessageIter *iter, int type, void *val)
 {
     DBusMessageIter value_iter;
@@ -314,40 +276,6 @@ void append_dict_args(DBusMessage *reply, const char *first_key, ...)
     append_dict_valist(&iter, first_key, var_args);
     va_end(var_args);
 }
-
-#if 0
-static void create_prop_array(Vector<String8> strArray, Properties *property, char * *value, int len, int *array_index ) {
-    char **prop_val = NULL;
-    char buf[32] = {'\0'}, buf1[32] = {'\0'};
-    int i; 
-    const char *name = property->name;
-    int prop_type = property->type; 
-    //set_object_array_element(strArray, name, *array_index);
-    *array_index += 1; 
-    if (prop_type == DBUS_TYPE_UINT32 || prop_type == DBUS_TYPE_INT16) {
-        //sprintf(buf, "%d", value->int_val);
-        //set_object_array_element(strArray, buf, *array_index);
-        *array_index += 1;
-    } else if (prop_type == DBUS_TYPE_BOOLEAN) {
-        //sprintf(buf, "%s", value->int_val ? "true" : "false"); 
-        //set_object_array_element(strArray, buf, *array_index);
-        *array_index += 1;
-    } else if (prop_type == DBUS_TYPE_ARRAY) {
-        // Write the length first
-        sprintf(buf1, "%d", len);
-        //set_object_array_element(strArray, buf1, *array_index);
-        *array_index += 1; 
-        //prop_val = value->array_val;
-        for (i = 0; i < len; i++) {
-            //set_object_array_element(strArray, prop_val[i], *array_index);
-            *array_index += 1;
-        }
-    } else {
-        //set_object_array_element(strArray, (const char *) *value, *array_index);
-        *array_index += 1;
-    }
-}
-#endif
 
 static int get_property(BTProperties& prop, DBusMessageIter iter)
 {
@@ -510,5 +438,92 @@ const char *bt_frombase64(String8 arg, int *len)
    char *retval = NULL;
    return retval;
 }
+
+#if 0
+static Vector<String8> dbus_returns_array_of_object_path(DBusMessage *reply) { 
+    DBusError err;
+    char **list;
+    int i, len;
+    Vector<String8> strArray;
+    dbus_error_init(&err);
+    if (dbus_message_get_args (reply, &err, DBUS_TYPE_ARRAY, DBUS_TYPE_OBJECT_PATH, &list, &len, DBUS_TYPE_INVALID)) {
+        String8 classNameStr; 
+        //for (i = 0; i < len; i++)
+            //set_object_array_element(strArray, list[i], i);
+    } else {
+        LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, reply);
+    }
+    dbus_message_unref(reply);
+    return strArray;
+}
+Vector<String8> dbus_returns_array_of_strings(DBusMessage *reply) { 
+    Vector<String8> result;
+    DBusError err;
+    char **list;
+    int i, len;
+    dbus_error_init(&err);
+    if (dbus_message_get_args (reply, &err, DBUS_TYPE_ARRAY, DBUS_TYPE_STRING, &list, &len, DBUS_TYPE_INVALID)) {
+        String8 classNameStr; 
+        printf("%s: there are %d elements in string array!", __FUNCTION__, len); 
+        for (i = 0; i < len; i++)
+            result.push(String8(list[i]));
+    } else {
+        LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, reply);
+    }
+    dbus_message_unref(reply);
+    return result;
+}
+
+jbyteArray dbus_returns_array_of_bytes(DBusMessage *reply) { 
+    DBusError err;
+    int i, len;
+    jbyte *list;
+    jbyteArray byteArray = NULL;
+
+    dbus_error_init(&err);
+    if (dbus_message_get_args(reply, &err, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, &list, &len, DBUS_TYPE_INVALID)) {
+        printf("%s: there are %d elements in byte array!", __FUNCTION__, len);
+        //byteArray = env->NewByteArray(len);
+        //if (byteArray)
+            //env->SetByteArrayRegion(byteArray, 0, len, list); 
+    } else {
+        LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, reply);
+    }
+
+    dbus_message_unref(reply);
+    return byteArray;
+}
+static void create_prop_array(Vector<String8> strArray, Properties *property, char * *value, int len, int *array_index ) {
+    char **prop_val = NULL;
+    char buf[32] = {'\0'}, buf1[32] = {'\0'};
+    int i; 
+    const char *name = property->name;
+    int prop_type = property->type; 
+    //set_object_array_element(strArray, name, *array_index);
+    *array_index += 1; 
+    if (prop_type == DBUS_TYPE_UINT32 || prop_type == DBUS_TYPE_INT16) {
+        //sprintf(buf, "%d", value->int_val);
+        //set_object_array_element(strArray, buf, *array_index);
+        *array_index += 1;
+    } else if (prop_type == DBUS_TYPE_BOOLEAN) {
+        //sprintf(buf, "%s", value->int_val ? "true" : "false"); 
+        //set_object_array_element(strArray, buf, *array_index);
+        *array_index += 1;
+    } else if (prop_type == DBUS_TYPE_ARRAY) {
+        // Write the length first
+        sprintf(buf1, "%d", len);
+        //set_object_array_element(strArray, buf1, *array_index);
+        *array_index += 1; 
+        //prop_val = value->array_val;
+        for (i = 0; i < len; i++) {
+            //set_object_array_element(strArray, prop_val[i], *array_index);
+            *array_index += 1;
+        }
+    } else {
+        //set_object_array_element(strArray, (const char *) *value, *array_index);
+        *array_index += 1;
+    }
+}
+#endif
 
 } /* namespace android */
