@@ -107,105 +107,88 @@ static void async_cb(DBusPendingCall *call, void *data)
     free(req);
 }
 
-static dbus_bool_t async_valist(int timeout_ms, void (*user_cb)(DBusMessage *, void *, void*), void *user, const char *path, const char *ifc, const char *func, int first_arg_type, va_list args)
+static DBusPendingCall *startreq(int timeout_ms, //void (*user_cb)(DBusMessage *, void *, void*), void *user, 
+const char *path, const char *ifc, const char *func, int first_arg_type, va_list args)
 {
     dbus_bool_t reply = FALSE;
+    DBusPendingCall *call = NULL; 
     DBusMessage *msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, path, ifc, func); 
     if (!dbus_message_append_args_valist(msg, first_arg_type, args)) {
         printf("Could not append argument to method call!");
     }
     else {
-        DBusPendingCall *call; 
         reply = dbus_connection_send_with_reply(global_conn, msg, &call, timeout_ms);
-        if (reply) {
-            dbus_async_call_t *pending = (dbus_async_call_t *)malloc(sizeof(dbus_async_call_t));
-            pending->user_cb = user_cb;
-            pending->user = user;
-            //pending->method = msg; 
-            dbus_pending_call_set_notify(call, async_cb, pending, NULL);
-        }
+        if (!reply)
+            call = NULL;
     }
     if (msg) dbus_message_unref(msg);
-    return reply;
+    return call;
 }
-static DBusMessage * ato_valist(const char *path, const char *ifc, const char *func, int first_arg_type, va_list args)
+static dbus_bool_t async_valist1(int timeout_ms, void (*user_cb)(DBusMessage *, void *, void*), void *user, const char *path, const char *ifc, const char *func, int first_arg_type, va_list args)
+{
+    DBusPendingCall * call = startreq(timeout_ms, path, ifc, func, first_arg_type, args);
+    if (call) {
+        dbus_async_call_t *pending = (dbus_async_call_t *)malloc(sizeof(dbus_async_call_t));
+        pending->user_cb = user_cb;
+        pending->user = user;
+        //pending->method = msg; 
+        dbus_pending_call_set_notify(call, async_cb, pending, NULL);
+    }
+    return call != NULL;
+}
+static DBusMessage * ato_valist1(const char *path, const char *ifc, const char *func, int first_arg_type, va_list args)
 {
     DBusMessage *reply = NULL;
-    DBusPendingCall *call;
+    DBusPendingCall * call = startreq(-1, path, ifc, func, first_arg_type, args);
     DBusError err;
-    DBusMessage *msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, path, ifc, func); 
-    if (!dbus_message_append_args_valist(msg, first_arg_type, args)) {
-        printf("Could not append argument to method call!");
+    if (call) {
+        dbus_pending_call_block (call);
+        reply = dbus_pending_call_steal_reply (call);
+        dbus_pending_call_unref (call);
+        if (dbus_set_error_from_message (&err, reply)) {
+            dbus_message_unref (reply);
+            reply = NULL;
+        }
     }
-    else {
-#if 0
-        reply = dbus_connection_send_with_reply_and_block(global_conn, msg, -1, &err);
-        if (dbus_error_is_set(&err)) {
-            LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
-        }
-#else
-        if (dbus_connection_send_with_reply (global_conn, msg, &call, -1) && call) {
-            dbus_pending_call_block (call);
-            reply = dbus_pending_call_steal_reply (call);
-            dbus_pending_call_unref (call);
-            if (dbus_set_error_from_message (&err, reply)) {
-                dbus_message_unref (reply);
-                reply = NULL;
-            }
-        }
-        if (dbus_error_is_set(&err)) {
-            LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
-        }
-#endif
+    if (dbus_error_is_set(&err)) {
+        LOG_AND_FREE_DBUS_ERROR(&err);
     }
-    if (msg) dbus_message_unref(msg);
     return reply;
 }
 dbus_bool_t dbus_func_async(int timeout_ms, void (*reply)(DBusMessage *, void *, void*), void *user, const char *path, const char *ifc, const char *func, int first_arg_type, ...) {
     va_list lst;
     va_start(lst, first_arg_type);
-    dbus_bool_t ret = async_valist(timeout_ms, reply, user, path, ifc, func, first_arg_type, lst);
+    dbus_bool_t ret = async_valist1(timeout_ms, reply, user, path, ifc, func, first_arg_type, lst);
     va_end(lst);
     return ret;
 }
 DBusMessage * dbus_func_args(const char *path, const char *ifc, const char *func, int first_arg_type, ...) {
     va_list lst;
     va_start(lst, first_arg_type);
-    DBusMessage *ret = ato_valist(path, ifc, func, first_arg_type, lst);
+    DBusMessage *ret = ato_valist1(path, ifc, func, first_arg_type, lst);
     va_end(lst);
     return ret;
 }
-int dbus_returns_unixfd(DBusMessage *reply) {
+int dbus_returns_int(DBusMessage *reply, int arg_type) {
     DBusError err;
     int ret = -1; 
     dbus_error_init(&err);
-    if (!dbus_message_get_args(reply, &err, DBUS_TYPE_UNIX_FD, &ret, DBUS_TYPE_INVALID)) {
+    if (!dbus_message_get_args(reply, &err, arg_type, &ret, DBUS_TYPE_INVALID)) {
         LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, reply);
     }
     dbus_message_unref(reply);
     return ret;
+}
+int dbus_returns_unixfd(DBusMessage *reply) {
+    return dbus_returns_int(reply, DBUS_TYPE_UNIX_FD);
 }
 
 int dbus_returns_int32(DBusMessage *reply) { 
-    DBusError err;
-    int ret = -1; 
-    dbus_error_init(&err);
-    if (!dbus_message_get_args(reply, &err, DBUS_TYPE_INT32, &ret, DBUS_TYPE_INVALID)) {
-        LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, reply);
-    }
-    dbus_message_unref(reply);
-    return ret;
+    return dbus_returns_int(reply, DBUS_TYPE_INT32);
 }
 
 int dbus_returns_uint32(DBusMessage *reply) { 
-    DBusError err;
-    int ret = -1; 
-    dbus_error_init(&err);
-    if (!dbus_message_get_args(reply, &err, DBUS_TYPE_UINT32, &ret, DBUS_TYPE_INVALID)) {
-        LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, reply);
-    }
-    dbus_message_unref(reply);
-    return ret;
+    return dbus_returns_int(reply, DBUS_TYPE_UINT32);
 }
 
 String8 dbus_returns_string(DBusMessage *reply) { 
