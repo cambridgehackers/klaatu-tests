@@ -124,22 +124,26 @@ const char *path, const char *ifc, const char *func, int first_arg_type, va_list
     if (msg) dbus_message_unref(msg);
     return call;
 }
-static dbus_bool_t async_valist1(int timeout_ms, void (*user_cb)(DBusMessage *, void *, void*), void *user, const char *path, const char *ifc, const char *func, int first_arg_type, va_list args)
-{
-    DBusPendingCall * call = startreq(timeout_ms, path, ifc, func, first_arg_type, args);
+dbus_bool_t dbus_func_async(int timeout_ms, void (*reply)(DBusMessage *, void *, void*), void *user, const char *path, const char *ifc, const char *func, int first_arg_type, ...) {
+    va_list lst;
+    va_start(lst, first_arg_type);
+    DBusPendingCall * call = startreq(timeout_ms, path, ifc, func, first_arg_type, lst);
+    va_end(lst);
     if (call) {
         dbus_async_call_t *pending = (dbus_async_call_t *)malloc(sizeof(dbus_async_call_t));
-        pending->user_cb = user_cb;
+        pending->user_cb = reply;
         pending->user = user;
         //pending->method = msg; 
         dbus_pending_call_set_notify(call, async_cb, pending, NULL);
     }
     return call != NULL;
 }
-static DBusMessage * ato_valist1(const char *path, const char *ifc, const char *func, int first_arg_type, va_list args)
-{
+DBusMessage * dbus_func_args(const char *path, const char *ifc, const char *func, int first_arg_type, ...) {
+    va_list lst;
+    va_start(lst, first_arg_type);
     DBusMessage *reply = NULL;
-    DBusPendingCall * call = startreq(-1, path, ifc, func, first_arg_type, args);
+    DBusPendingCall * call = startreq(-1, path, ifc, func, first_arg_type, lst);
+    va_end(lst);
     DBusError err;
     if (call) {
         dbus_pending_call_block (call);
@@ -154,20 +158,6 @@ static DBusMessage * ato_valist1(const char *path, const char *ifc, const char *
         LOG_AND_FREE_DBUS_ERROR(&err);
     }
     return reply;
-}
-dbus_bool_t dbus_func_async(int timeout_ms, void (*reply)(DBusMessage *, void *, void*), void *user, const char *path, const char *ifc, const char *func, int first_arg_type, ...) {
-    va_list lst;
-    va_start(lst, first_arg_type);
-    dbus_bool_t ret = async_valist1(timeout_ms, reply, user, path, ifc, func, first_arg_type, lst);
-    va_end(lst);
-    return ret;
-}
-DBusMessage * dbus_func_args(const char *path, const char *ifc, const char *func, int first_arg_type, ...) {
-    va_list lst;
-    va_start(lst, first_arg_type);
-    DBusMessage *ret = ato_valist1(path, ifc, func, first_arg_type, lst);
-    va_end(lst);
-    return ret;
 }
 int dbus_returns_int(DBusMessage *reply, int arg_type) {
     DBusError err;

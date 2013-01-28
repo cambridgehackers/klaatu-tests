@@ -95,9 +95,10 @@ static void onConnectSinkResult(DBusMessage *msg, void *user, void *n);
 
 static void dumpprop(BTProperties& prop, const char *name)
 {
-    for (size_t i = 0; i < prop.size(); ++i) {
-        printf("prop %s: %s=%s\n", name, prop.keyAt(i).string(), prop.valueAt(i).string());
-    }
+    printf("prop %s: ", name);
+    for (size_t i = 0; i < prop.size(); ++i)
+        printf("%s=%s; ", prop.keyAt(i).string(), prop.valueAt(i).string());
+    printf("\n");
 //indexOfKey
 }
 
