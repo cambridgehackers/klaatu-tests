@@ -110,7 +110,7 @@ BTProperties prop;
     int rc = -1;
 
     const char *c_path = path.string();
-    reply = dbus_func_args_timeout(-1, c_path, "org.bluez.AudioSink", "GetProperties", DBUS_TYPE_INVALID);
+    reply = dbus_func_args(c_path, "org.bluez.AudioSink", "GetProperties", DBUS_TYPE_INVALID);
     if (!reply && dbus_error_is_set(&err)) {
         LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, reply);
         return result;
@@ -130,27 +130,27 @@ static bool connectSinkNative(String8 path) {
     int len = path.length() + 1;
     char *context_path = (char *)calloc(len, sizeof(char));
     strlcpy(context_path, c_path, len);  // for callback
-    return dbus_func_args_async(-1, onConnectSinkResult, context_path, path.string(), "org.bluez.AudioSink", "Connect", DBUS_TYPE_INVALID); 
+    return dbus_func_async(-1, onConnectSinkResult, context_path, path.string(), "org.bluez.AudioSink", "Connect", DBUS_TYPE_INVALID); 
 }
 
 static bool disconnectSinkNative(String8 path) {
-    return dbus_func_args_async(-1,NULL,NULL, path.string(), "org.bluez.AudioSink", "Disconnect", DBUS_TYPE_INVALID); 
+    return dbus_func_async(-1,NULL,NULL, path.string(), "org.bluez.AudioSink", "Disconnect", DBUS_TYPE_INVALID); 
 }
 
 static bool suspendSinkNative(String8 path) {
-    return dbus_func_args_async(-1, NULL, NULL, path.string(), "org.bluez.audio.Sink", "Suspend", DBUS_TYPE_INVALID);
+    return dbus_func_async(-1, NULL, NULL, path.string(), "org.bluez.audio.Sink", "Suspend", DBUS_TYPE_INVALID);
 }
 
 static bool resumeSinkNative(String8 path) {
-    return dbus_func_args_async(-1, NULL, NULL, path.string(), "org.bluez.audio.Sink", "Resume", DBUS_TYPE_INVALID);
+    return dbus_func_async(-1, NULL, NULL, path.string(), "org.bluez.audio.Sink", "Resume", DBUS_TYPE_INVALID);
 }
 
 static bool avrcpVolumeUpNative(String8 path) {
-    return dbus_func_args_async(-1, NULL, NULL, path.string(), "org.bluez.Control", "VolumeUp", DBUS_TYPE_INVALID);
+    return dbus_func_async(-1, NULL, NULL, path.string(), "org.bluez.Control", "VolumeUp", DBUS_TYPE_INVALID);
 }
 
 static bool avrcpVolumeDownNative(String8 path) {
-    return dbus_func_args_async(-1, NULL, NULL, path.string(), "org.bluez.Control", "VolumeDown", DBUS_TYPE_INVALID);
+    return dbus_func_async(-1, NULL, NULL, path.string(), "org.bluez.Control", "VolumeDown", DBUS_TYPE_INVALID);
 }
 
 void onConnectSinkResult(DBusMessage *msg, void *user, void *n) {
@@ -926,7 +926,7 @@ static bool createPairedDeviceNative(String8 address, int timeout_ms) {
     char *context_address = (char *)calloc(BTADDR_SIZE, sizeof(char));
     const char *capabilities = "DisplayYesNo";
     strlcpy(context_address, c_address, BTADDR_SIZE);  // for callback
-    return dbus_func_args_async((int)timeout_ms, onCreatePairedDeviceResult, context_address, global_adapter, DBUS_ADAPTER_IFACE, "CreatePairedDevice", DBUS_TYPE_STRING, &c_address, DBUS_TYPE_OBJECT_PATH, &device_agent_path, DBUS_TYPE_STRING, &capabilities, DBUS_TYPE_INVALID);
+    return dbus_func_async(timeout_ms, onCreatePairedDeviceResult, context_address, global_adapter, DBUS_ADAPTER_IFACE, "CreatePairedDevice", DBUS_TYPE_STRING, &c_address, DBUS_TYPE_OBJECT_PATH, &device_agent_path, DBUS_TYPE_STRING, &capabilities, DBUS_TYPE_INVALID);
 }
 
 static bool createPairedDeviceOutOfBandNative(String8 address, int timeout_ms) {
@@ -935,7 +935,7 @@ static bool createPairedDeviceOutOfBandNative(String8 address, int timeout_ms) {
     char *context_address = (char *)calloc(BTADDR_SIZE, sizeof(char));
     const char *capabilities = "DisplayYesNo";
     strlcpy(context_address, c_address, BTADDR_SIZE);  // for callback
-    return dbus_func_args_async((int)timeout_ms, onCreatePairedDeviceResult, context_address, global_adapter, DBUS_ADAPTER_IFACE, "CreatePairedDeviceOutOfBand", DBUS_TYPE_STRING, &c_address, DBUS_TYPE_OBJECT_PATH, &device_agent_path, DBUS_TYPE_STRING, &capabilities, DBUS_TYPE_INVALID);
+    return dbus_func_async(timeout_ms, onCreatePairedDeviceResult, context_address, global_adapter, DBUS_ADAPTER_IFACE, "CreatePairedDeviceOutOfBand", DBUS_TYPE_STRING, &c_address, DBUS_TYPE_OBJECT_PATH, &device_agent_path, DBUS_TYPE_STRING, &capabilities, DBUS_TYPE_INVALID);
 }
 
 static int getDeviceServiceChannelNative(String8 path, String8 pattern, int attr_id) {
@@ -953,7 +953,7 @@ static bool cancelDeviceCreationNative(String8 address) {
     DBusError err;
     dbus_error_init(&err);
     ALOGV("... address = %s", c_address);
-    DBusMessage *reply = dbus_func_args_timeout(-1, global_adapter, DBUS_ADAPTER_IFACE, "CancelDeviceCreation", DBUS_TYPE_STRING, &c_address, DBUS_TYPE_INVALID);
+    DBusMessage *reply = dbus_func_args(global_adapter, DBUS_ADAPTER_IFACE, "CancelDeviceCreation", DBUS_TYPE_STRING, &c_address, DBUS_TYPE_INVALID);
     if (!reply) {
         if (dbus_error_is_set(&err)) {
             LOG_AND_FREE_DBUS_ERROR(&err);
@@ -969,7 +969,7 @@ static bool cancelDeviceCreationNative(String8 address) {
 
 static bool removeDeviceNative(String8 object_path) {
     const char *c_object_path = object_path.string();
-    return dbus_func_args_async(-1, NULL, NULL, global_adapter, DBUS_ADAPTER_IFACE, "RemoveDevice", DBUS_TYPE_OBJECT_PATH, &c_object_path, DBUS_TYPE_INVALID);
+    return dbus_func_async(-1, NULL, NULL, global_adapter, DBUS_ADAPTER_IFACE, "RemoveDevice", DBUS_TYPE_OBJECT_PATH, &c_object_path, DBUS_TYPE_INVALID);
 }
 
 static bool setPairingConfirmationNative(String8 address, bool confirm, int nativeData) {
@@ -1062,7 +1062,7 @@ BTProperties prop;
     int rc = -1;
     dbus_error_init(&err); 
     const char *c_path = path.string();
-    reply = dbus_func_args_timeout(-1, c_path, DBUS_DEVICE_IFACE, "GetProperties", DBUS_TYPE_INVALID);
+    reply = dbus_func_args(c_path, DBUS_DEVICE_IFACE, "GetProperties", DBUS_TYPE_INVALID);
     if (!reply) {
         if (dbus_error_is_set(&err)) {
             LOG_AND_FREE_DBUS_ERROR(&err);
@@ -1086,7 +1086,7 @@ static Vector<String8> getAdapterPropertiesNative()
     dbus_error_init(&err); 
 BTProperties prop;
     int rc = -1;
-    reply = dbus_func_args_timeout(-1, global_adapter, DBUS_ADAPTER_IFACE, "GetProperties", DBUS_TYPE_INVALID);
+    reply = dbus_func_args(global_adapter, DBUS_ADAPTER_IFACE, "GetProperties", DBUS_TYPE_INVALID);
     if (!reply) {
         if (dbus_error_is_set(&err)) {
             LOG_AND_FREE_DBUS_ERROR(&err);
@@ -1162,7 +1162,7 @@ static bool createDeviceNative(String8 address) {
     char *context_address = (char *)calloc(BTADDR_SIZE, sizeof(char));
     strlcpy(context_address, c_address, BTADDR_SIZE);  // for callback
 
-    return dbus_func_args_async(-1, onCreateDeviceResult, context_address, global_adapter, DBUS_ADAPTER_IFACE, "CreateDevice", DBUS_TYPE_STRING, &c_address, DBUS_TYPE_INVALID);
+    return dbus_func_async(-1, onCreateDeviceResult, context_address, global_adapter, DBUS_ADAPTER_IFACE, "CreateDevice", DBUS_TYPE_STRING, &c_address, DBUS_TYPE_INVALID);
 }
 
 void onDiscoverServicesResult(DBusMessage *msg, void *user, void *n) {
@@ -1190,7 +1190,7 @@ static bool discoverServicesNative(String8 path, String8 pattern) {
     ALOGV("... Object Path = %s", c_path);
     ALOGV("... Pattern = %s, strlen = %d", c_pattern, strlen(c_pattern));
 
-    return dbus_func_args_async(-1, onDiscoverServicesResult, context_path, c_path, DBUS_DEVICE_IFACE, "DiscoverServices", DBUS_TYPE_STRING, &c_pattern, DBUS_TYPE_INVALID);
+    return dbus_func_async(-1, onDiscoverServicesResult, context_path, c_path, DBUS_DEVICE_IFACE, "DiscoverServices", DBUS_TYPE_STRING, &c_pattern, DBUS_TYPE_INVALID);
 }
 
 static int * extract_handles(DBusMessage *reply) {
@@ -1254,7 +1254,7 @@ static bool connectInputDeviceNative(String8 path) {
     int len = path.length() + 1;
     char *context_path = (char *)calloc(len, sizeof(char));
     strlcpy(context_path, c_path, len);  // for callback 
-    return dbus_func_args_async(-1, onInputDeviceConnectionResult, context_path, c_path, DBUS_INPUT_IFACE, "Connect", DBUS_TYPE_INVALID); 
+    return dbus_func_async(-1, onInputDeviceConnectionResult, context_path, c_path, DBUS_INPUT_IFACE, "Connect", DBUS_TYPE_INVALID); 
 }
 
 static bool disconnectInputDeviceNative(String8 path) {
@@ -1262,7 +1262,7 @@ static bool disconnectInputDeviceNative(String8 path) {
     int len = path.length() + 1;
     char *context_path = (char *)calloc(len, sizeof(char));
     strlcpy(context_path, c_path, len);  // for callback 
-    return dbus_func_args_async(-1, onInputDeviceConnectionResult, context_path, c_path, DBUS_INPUT_IFACE, "Disconnect", DBUS_TYPE_INVALID); 
+    return dbus_func_async(-1, onInputDeviceConnectionResult, context_path, c_path, DBUS_INPUT_IFACE, "Disconnect", DBUS_TYPE_INVALID); 
 }
 
 static bool setBluetoothTetheringNative(bool value, String8 src_role, String8 bridge) {
@@ -1285,7 +1285,7 @@ static bool connectPanDeviceNative(String8 path, String8 dstRole) {
     int len = path.length() + 1;
     char *context_path = (char *)calloc(len, sizeof(char));
     strlcpy(context_path, c_path, len);  // for callback 
-    return dbus_func_args_async(-1,onPanDeviceConnectionResult, context_path, c_path, DBUS_NETWORK_IFACE, "Connect", DBUS_TYPE_STRING, &dst, DBUS_TYPE_INVALID); 
+    return dbus_func_async(-1,onPanDeviceConnectionResult, context_path, c_path, DBUS_NETWORK_IFACE, "Connect", DBUS_TYPE_STRING, &dst, DBUS_TYPE_INVALID); 
 }
 
 static bool disconnectPanDeviceNative(String8 path) {
@@ -1293,7 +1293,7 @@ static bool disconnectPanDeviceNative(String8 path) {
     int len = path.length() + 1;
     char *context_path = (char *)calloc(len, sizeof(char));
     strlcpy(context_path, c_path, len);  // for callback 
-    return dbus_func_args_async(-1,onPanDeviceConnectionResult, context_path, c_path, DBUS_NETWORK_IFACE, "Disconnect", DBUS_TYPE_INVALID); 
+    return dbus_func_async(-1,onPanDeviceConnectionResult, context_path, c_path, DBUS_NETWORK_IFACE, "Disconnect", DBUS_TYPE_INVALID); 
 }
 
 static bool disconnectPanServerDeviceNative(String8 path, String8 address, String8 iface) {
@@ -1303,7 +1303,7 @@ static bool disconnectPanServerDeviceNative(String8 path, String8 address, Strin
     int len = path.length() + 1;
     char *context_path = (char *)calloc(len, sizeof(char));
     strlcpy(context_path, c_path, len);  // for callback 
-    return dbus_func_args_async(-1, onPanDeviceConnectionResult, context_path, global_adapter, DBUS_NETWORKSERVER_IFACE, "DisconnectDevice", DBUS_TYPE_STRING, &c_address, DBUS_TYPE_STRING, &c_iface, DBUS_TYPE_INVALID); 
+    return dbus_func_async(-1, onPanDeviceConnectionResult, context_path, global_adapter, DBUS_NETWORKSERVER_IFACE, "DisconnectDevice", DBUS_TYPE_STRING, &c_address, DBUS_TYPE_STRING, &c_iface, DBUS_TYPE_INVALID); 
 }
 
 static String8 registerHealthApplicationNative(int dataType, String8 role, String8 name, String8 channelType) {
@@ -1372,7 +1372,7 @@ static bool unregisterHealthApplicationNative(String8 path) {
     const char *c_path = path.string();
     DBusError err;
     dbus_error_init(&err);
-    DBusMessage *reply = dbus_func_args_timeout(-1, DBUS_HEALTH_MANAGER_PATH, DBUS_HEALTH_MANAGER_IFACE, "DestroyApplication", DBUS_TYPE_OBJECT_PATH, &c_path, DBUS_TYPE_INVALID); 
+    DBusMessage *reply = dbus_func_args(DBUS_HEALTH_MANAGER_PATH, DBUS_HEALTH_MANAGER_IFACE, "DestroyApplication", DBUS_TYPE_OBJECT_PATH, &c_path, DBUS_TYPE_INVALID); 
     if (!reply) {
         if (dbus_error_is_set(&err)) {
             LOG_AND_FREE_DBUS_ERROR(&err);
@@ -1389,7 +1389,7 @@ static bool createChannelNative(String8 devicePath, String8 appPath, String8 con
     const char *c_config = config.string();
     int *data = (int *) malloc(sizeof(int));
     *data = code;
-    return dbus_func_args_async(-1, onHealthDeviceConnectionResult, data, c_device_path, DBUS_HEALTH_DEVICE_IFACE, "CreateChannel", DBUS_TYPE_OBJECT_PATH, &c_app_path, DBUS_TYPE_STRING, &c_config, DBUS_TYPE_INVALID); 
+    return dbus_func_async(-1, onHealthDeviceConnectionResult, data, c_device_path, DBUS_HEALTH_DEVICE_IFACE, "CreateChannel", DBUS_TYPE_OBJECT_PATH, &c_app_path, DBUS_TYPE_STRING, &c_config, DBUS_TYPE_INVALID); 
 }
 
 static bool destroyChannelNative(String8 devicePath, String8 channelPath, int code) {
@@ -1397,7 +1397,7 @@ static bool destroyChannelNative(String8 devicePath, String8 channelPath, int co
     const char *c_channel_path = channelPath.string();
     int *data = (int *) malloc(sizeof(int));
     *data = code;
-    return dbus_func_args_async(-1, onHealthDeviceConnectionResult, data, c_device_path, DBUS_HEALTH_DEVICE_IFACE, "DestroyChannel", DBUS_TYPE_OBJECT_PATH, &c_channel_path, DBUS_TYPE_INVALID); 
+    return dbus_func_async(-1, onHealthDeviceConnectionResult, data, c_device_path, DBUS_HEALTH_DEVICE_IFACE, "DestroyChannel", DBUS_TYPE_OBJECT_PATH, &c_channel_path, DBUS_TYPE_INVALID); 
 }
 
 static String8 getMainChannelNative(String8 devicePath) {

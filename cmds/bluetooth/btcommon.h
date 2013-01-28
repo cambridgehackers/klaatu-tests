@@ -21,12 +21,10 @@
 #define LOG_NDEBUG 1
 
 #include "utils/Log.h"
-
 #include <errno.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <sys/poll.h>
-
 #include <dbus/dbus.h>
 #include <bluetooth/bluetooth.h>
 #include <utils/Vector.h>
@@ -34,7 +32,6 @@
 #include <utils/String8.h>
 
 namespace android {
-
 #define BLUEZ_DBUS_BASE_PATH      "/org/bluez"
 #define BLUEZ_DBUS_BASE_IFC       "org.bluez"
 #define BLUEZ_ERROR_IFC           "org.bluez.Error"
@@ -44,7 +41,6 @@ namespace android {
 // It is much easier just to hardcode bluetooth adapter to hci0
 #define BLUETOOTH_ADAPTER_HCI_NUM 0
 #define BLUEZ_ADAPTER_OBJECT_NAME BLUEZ_DBUS_BASE_PATH "/hci0"
-
 #define BTADDR_SIZE 18   // size of BT address character array (including null)
 
 // size of the dbus event loops pollfd structure, hopefully never to be grown
@@ -61,16 +57,8 @@ namespace android {
         (err)->name, (err)->message); \
         dbus_error_free((err)); }
 
-//typedef struct {
-    //const char *name;
-    //int type;
-//} Properties;
-
-dbus_bool_t dbus_func_args_async(int timeout_ms, void (*reply)(DBusMessage *, void *, void *), void *user, const char *path, const char *ifc, const char *func, int first_arg_type, ...); 
+dbus_bool_t dbus_func_async(int timeout_ms, void (*reply)(DBusMessage *, void *, void *), void *user, const char *path, const char *ifc, const char *func, int first_arg_type, ...); 
 DBusMessage * dbus_func_args(const char *path, const char *ifc, const char *func, int first_arg_type, ...); 
-//DBusMessage * dbus_func_args_error(DBusError *err, const char *path, const char *ifc, const char *func, int first_arg_type, ...); 
-DBusMessage * dbus_func_args_timeout(int timeout_ms, const char *path, const char *ifc, const char *func, int first_arg_type, ...); 
-//DBusMessage * dbus_func_args_timeout_valist(int timeout_ms, DBusError *err, const char *path, const char *ifc, const char *func, int first_arg_type, va_list args); 
 int dbus_returns_int32(DBusMessage *reply);
 int dbus_returns_uint32(DBusMessage *reply);
 int dbus_returns_unixfd(DBusMessage *reply);
@@ -83,8 +71,6 @@ void append_variant(DBusMessageIter *iter, int type, void *val);
 int get_bdaddr(const char *str, bdaddr_t *ba);
 void get_bdaddr_as_string(const bdaddr_t *ba, char *str);
 bool debug_no_encrypt();
-String8 bt_urlencode(const char *arg, int len);
-const char *bt_urldecode(String8 arg, int *len);
 
 // Result codes from Bluez DBus calls
 #define BOND_RESULT_ERROR                      -1
