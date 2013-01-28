@@ -331,64 +331,6 @@ void append_dict_args(DBusMessage *reply, const char *first_key, ...)
     va_end(var_args);
 }
 
-static int get_property(BTProperties& prop, DBusMessageIter iter)
-{
-    DBusMessageIter prop_val, array_val_iter;
-    char inttemp[32], *property = NULL;
-    uint32_t array_type;
-    int j, int_val = 0;
-    char *value = (char *)"(none)";
-
-    if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
-        return -1;
-    dbus_message_iter_get_basic(&iter, &property);
-    if (!dbus_message_iter_next(&iter)
-     || dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)
-        return -1;
-    dbus_message_iter_recurse(&iter, &prop_val);
-    switch(dbus_message_iter_get_arg_type(&prop_val)) {
-    case DBUS_TYPE_STRING:
-    case DBUS_TYPE_OBJECT_PATH:
-        dbus_message_iter_get_basic(&prop_val, &value);
-        break;
-    case DBUS_TYPE_UINT32:
-    case DBUS_TYPE_INT16:
-    case DBUS_TYPE_BOOLEAN:
-        dbus_message_iter_get_basic(&prop_val, &int_val);
-        sprintf(inttemp, "%d", int_val);
-        value = strdup(inttemp);
-        break;
-    case DBUS_TYPE_ARRAY:
-        dbus_message_iter_recurse(&prop_val, &array_val_iter);
-        array_type = dbus_message_iter_get_arg_type(&array_val_iter);
-        //value->array_val = NULL;
-        if (array_type == DBUS_TYPE_OBJECT_PATH ||
-            array_type == DBUS_TYPE_STRING){
-            j = 0;
-            do {
-               j ++;
-            } while(dbus_message_iter_next(&array_val_iter));
-            dbus_message_iter_recurse(&prop_val, &array_val_iter);
-            // Allocate  an array of char *
-            //*len = j;
-            char **tmp = (char **)malloc(sizeof(char *) * j);
-            if (!tmp)
-                return -1;
-            j = 0;
-            do {
-               dbus_message_iter_get_basic(&array_val_iter, &tmp[j]);
-               j ++;
-            } while(dbus_message_iter_next(&array_val_iter));
-            //value->array_val = tmp;
-        }
-        break;
-    default:
-        return -1;
-    }
-    prop.add(String8(property), String8(value));
-    return 0;
-}
-
 #if 0
 static void create_prop_array(Vector<String8> strArray, Properties *property, char * *value, int len, int *array_index ) {
     char **prop_val = NULL;
@@ -422,6 +364,79 @@ static void create_prop_array(Vector<String8> strArray, Properties *property, ch
     }
 }
 #endif
+
+static int get_property(BTProperties& prop, DBusMessageIter iter)
+{
+    DBusMessageIter prop_val, array_val_iter;
+    char inttemp[32], *property = NULL;
+    uint32_t array_type;
+    int j = 0;
+    union {
+        dbus_uint32_t int_val;
+        dbus_int16_t int16_val;
+        bool boolean_val;
+    } ival;
+    char *value = (char *)"(none)";
+
+    if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
+        return -1;
+    dbus_message_iter_get_basic(&iter, &property);
+    if (!dbus_message_iter_next(&iter)
+     || dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)
+        return -1;
+    dbus_message_iter_recurse(&iter, &prop_val);
+    int type = dbus_message_iter_get_arg_type(&prop_val);
+    switch(type) {
+    case DBUS_TYPE_STRING:
+    case DBUS_TYPE_OBJECT_PATH:
+        dbus_message_iter_get_basic(&prop_val, &value);
+        break;
+    case DBUS_TYPE_UINT32:
+    case DBUS_TYPE_INT16:
+    case DBUS_TYPE_BOOLEAN:
+        dbus_message_iter_get_basic(&prop_val, &ival);
+        switch(type) {
+        case DBUS_TYPE_UINT32:
+            j = ival.int_val;
+            break;
+        case DBUS_TYPE_INT16:
+            j = ival.int16_val;
+            break;
+        case DBUS_TYPE_BOOLEAN:
+            j = ival.boolean_val;
+            break;
+        }
+        sprintf(inttemp, "%d", j);
+        value = strdup(inttemp);
+        break;
+    case DBUS_TYPE_ARRAY:
+        dbus_message_iter_recurse(&prop_val, &array_val_iter);
+        array_type = dbus_message_iter_get_arg_type(&array_val_iter);
+        //value->array_val = NULL;
+        if (array_type == DBUS_TYPE_OBJECT_PATH || array_type == DBUS_TYPE_STRING){
+            do {
+               j ++;
+            } while(dbus_message_iter_next(&array_val_iter));
+            dbus_message_iter_recurse(&prop_val, &array_val_iter);
+            // Allocate  an array of char *
+            //*len = j;
+            char **tmp = (char **)malloc(sizeof(char *) * j);
+            if (!tmp)
+                return -1;
+            j = 0;
+            do {
+               dbus_message_iter_get_basic(&array_val_iter, &tmp[j]);
+               j ++;
+            } while(dbus_message_iter_next(&array_val_iter));
+            //value->array_val = tmp;
+        }
+        break;
+    default:
+        return -1;
+    }
+    prop.add(String8(property), String8(value));
+    return 0;
+}
 int parse_properties(BTProperties& prop, DBusMessageIter *iter)
 {
     DBusMessageIter dict_entry, dict;

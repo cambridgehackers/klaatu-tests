@@ -49,6 +49,8 @@
 #define DBUS_HEALTH_MANAGER_IFACE BLUEZ_DBUS_BASE_IFC ".HealthManager"
 #define DBUS_HEALTH_DEVICE_IFACE BLUEZ_DBUS_BASE_IFC ".HealthDevice"
 #define DBUS_HEALTH_CHANNEL_IFACE BLUEZ_DBUS_BASE_IFC ".HealthChannel"
+static const char *agent_path = "/android/bluetooth/agent";
+static const char *device_agent_path = "/android/bluetooth/remote_device_agent";
 
 namespace android {
 
@@ -254,10 +256,6 @@ static const char * get_adapter_path(DBusConnection *conn) {
 
     for (attempt = 0; attempt < 1000 && reply == NULL; attempt ++) {
         msg = dbus_message_new_method_call("org.bluez", "/", "org.bluez.Manager", "DefaultAdapter");
-        if (!msg) {
-            ALOGE("%s: Can't allocate new method call for get_adapter_path!", __FUNCTION__);
-            return NULL;
-        }
         dbus_message_append_args(msg, DBUS_TYPE_INVALID);
         dbus_error_init(&err);
         reply = dbus_connection_send_with_reply_and_block(conn, msg, -1, &err); 
@@ -462,23 +460,18 @@ static void process_control(void)
                         DBusMessage *msg, *reply;
                         DBusError err;
                         dbus_error_init(&err);
-                        const char * agent_path = "/android/bluetooth/agent"; 
                         msg = dbus_message_new_method_call("org.bluez", global_adapter, "org.bluez.Adapter", "UnregisterAgent");
-                        if (msg) {
-                            dbus_message_append_args(msg, DBUS_TYPE_OBJECT_PATH, &agent_path, DBUS_TYPE_INVALID);
-                            reply = dbus_connection_send_with_reply_and_block(global_conn, msg, -1, &err); 
-                            if (!reply) {
-                                if (dbus_error_is_set(&err)) {
-                                    LOG_AND_FREE_DBUS_ERROR(&err);
-                                    dbus_error_free(&err);
-                                }
-                            } else {
-                                dbus_message_unref(reply);
+                        dbus_message_append_args(msg, DBUS_TYPE_OBJECT_PATH, &agent_path, DBUS_TYPE_INVALID);
+                        reply = dbus_connection_send_with_reply_and_block(global_conn, msg, -1, &err); 
+                        if (!reply) {
+                            if (dbus_error_is_set(&err)) {
+                                LOG_AND_FREE_DBUS_ERROR(&err);
+                                dbus_error_free(&err);
                             }
-                            dbus_message_unref(msg);
                         } else {
-                             ALOGE("%s: Can't create new method call!", __FUNCTION__);
-                        } 
+                            dbus_message_unref(reply);
+                        }
+                        dbus_message_unref(msg);
                         dbus_connection_flush(global_conn);
                         dbus_connection_unregister_object_path(global_conn, agent_path); 
                         removematch();
@@ -620,10 +613,6 @@ static DBusHandlerResult agent_event_filter(DBusConnection *conn, DBusMessage *m
         //JAVA(method_onAgentCancel);
         // reply
         reply = dbus_message_new_method_return(msg);
-        if (!reply) {
-            ALOGE("%s: Cannot create message reply\n", __FUNCTION__);
-            return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
-        }
         dbus_connection_send(global_conn, reply, NULL);
         dbus_message_unref(reply);
         break;
@@ -647,10 +636,6 @@ static DBusHandlerResult agent_event_filter(DBusConnection *conn, DBusMessage *m
         // reply
         if (available) {
             reply = dbus_message_new_method_return(msg);
-            if (!reply) {
-                ALOGE("%s: Cannot create message reply\n", __FUNCTION__);
-                return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
-            }
             dbus_connection_send(global_conn, reply, NULL);
             dbus_message_unref(reply);
         } else {
@@ -716,10 +701,6 @@ static DBusHandlerResult agent_event_filter(DBusConnection *conn, DBusMessage *m
     case BMETH_Release:
         // reply
         reply = dbus_message_new_method_return(msg);
-        if (!reply) {
-            ALOGE("%s: Cannot create message reply\n", __FUNCTION__);
-            return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
-        }
         dbus_connection_send(global_conn, reply, NULL);
         dbus_message_unref(reply);
         break;
@@ -878,7 +859,6 @@ void onHealthDeviceConnectionResult(DBusMessage *msg, void *user, void *n) {
 // This function is called when the adapter is enabled.
 static bool setupNativeDataNative() {
     // Register agent for remote devices.
-    const char *device_agent_path = "/android/bluetooth/remote_device_agent";
     static const DBusObjectPathVTable agent_vtable = { NULL, agent_event_filter, NULL, NULL, NULL, NULL }; 
     if (!dbus_connection_register_object_path(global_conn, device_agent_path, &agent_vtable, NULL)) {
         ALOGE("%s: Can't register object path %s for remote device agent!", __FUNCTION__, device_agent_path);
@@ -888,27 +868,17 @@ static bool setupNativeDataNative() {
 }
 
 static bool tearDownNativeDataNative() {
-    const char *device_agent_path = "/android/bluetooth/remote_device_agent";
     dbus_connection_unregister_object_path (global_conn, device_agent_path);
     return TRUE;
 }
 
 static bool stopDiscoveryNative() {
-    DBusMessage *msg = NULL;
-    DBusMessage *reply = NULL;
     DBusError err;
     const char *name;
     bool ret = FALSE; 
     dbus_error_init(&err); 
-    /* Compose the command */
-    msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, global_adapter, DBUS_ADAPTER_IFACE, "StopDiscovery");
-    if (msg == NULL) {
-        if (dbus_error_is_set(&err))
-            LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
-        goto done;
-    } 
-    /* Send the command. */
-    reply = dbus_connection_send_with_reply_and_block(global_conn, msg, -1, &err);
+    DBusMessage *msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, global_adapter, DBUS_ADAPTER_IFACE, "StopDiscovery");
+    DBusMessage *reply = dbus_connection_send_with_reply_and_block(global_conn, msg, -1, &err);
     if (dbus_error_is_set(&err)) {
         if(strncmp(err.name, BLUEZ_DBUS_BASE_IFC ".Error.NotAuthorized", strlen(BLUEZ_DBUS_BASE_IFC ".Error.NotAuthorized")) == 0) {
             // hcid sends this if there is no active discovery to cancel
@@ -931,25 +901,23 @@ static char * readAdapterOutOfBandDataNative() {
     char *hash, *randomizer;
     char * byteArray = NULL;
     int hash_len, r_len;
-       DBusMessage *reply = dbus_func_args(global_adapter, DBUS_ADAPTER_IFACE, "ReadLocalOutOfBandData", DBUS_TYPE_INVALID);
-       if (!reply) return NULL;
-
-       dbus_error_init(&err);
-       if (dbus_message_get_args(reply, &err, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, &hash, &hash_len, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, &randomizer, &r_len, DBUS_TYPE_INVALID)) {
-      if (hash_len == 16 && r_len == 16) {
-           byteArray =NULL;// env->NewByteArray(32);
-           if (byteArray) {
-               //env->SetByteArrayRegion(byteArray, 0, 16, hash);
-               //env->SetByteArrayRegion(byteArray, 16, 16, randomizer);
-           }
-       } else {
-           ALOGE("readAdapterOutOfBandDataNative: Hash len = %d, R len = %d", hash_len, r_len);
-       }
-       } else {
+    DBusMessage *reply = dbus_func_args(global_adapter, DBUS_ADAPTER_IFACE, "ReadLocalOutOfBandData", DBUS_TYPE_INVALID);
+    dbus_error_init(&err);
+    if (dbus_message_get_args(reply, &err, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, &hash, &hash_len, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, &randomizer, &r_len, DBUS_TYPE_INVALID)) {
+        if (hash_len == 16 && r_len == 16) {
+            byteArray =NULL;// env->NewByteArray(32);
+            if (byteArray) {
+                //env->SetByteArrayRegion(byteArray, 0, 16, hash);
+                //env->SetByteArrayRegion(byteArray, 16, 16, randomizer);
+            }
+        } else {
+            ALOGE("readAdapterOutOfBandDataNative: Hash len = %d, R len = %d", hash_len, r_len);
+        }
+    } else {
       LOG_AND_FREE_DBUS_ERROR(&err);
-       }
-       dbus_message_unref(reply);
-       return byteArray;
+    }
+    dbus_message_unref(reply);
+    return byteArray;
 }
 
 static bool createPairedDeviceNative(String8 address, int timeout_ms) {
@@ -957,9 +925,8 @@ static bool createPairedDeviceNative(String8 address, int timeout_ms) {
     ALOGV("... address = %s", c_address);
     char *context_address = (char *)calloc(BTADDR_SIZE, sizeof(char));
     const char *capabilities = "DisplayYesNo";
-    const char *agent_path = "/android/bluetooth/remote_device_agent"; 
     strlcpy(context_address, c_address, BTADDR_SIZE);  // for callback
-    return dbus_func_args_async((int)timeout_ms, onCreatePairedDeviceResult, context_address, global_adapter, DBUS_ADAPTER_IFACE, "CreatePairedDevice", DBUS_TYPE_STRING, &c_address, DBUS_TYPE_OBJECT_PATH, &agent_path, DBUS_TYPE_STRING, &capabilities, DBUS_TYPE_INVALID);
+    return dbus_func_args_async((int)timeout_ms, onCreatePairedDeviceResult, context_address, global_adapter, DBUS_ADAPTER_IFACE, "CreatePairedDevice", DBUS_TYPE_STRING, &c_address, DBUS_TYPE_OBJECT_PATH, &device_agent_path, DBUS_TYPE_STRING, &capabilities, DBUS_TYPE_INVALID);
 }
 
 static bool createPairedDeviceOutOfBandNative(String8 address, int timeout_ms) {
@@ -967,9 +934,8 @@ static bool createPairedDeviceOutOfBandNative(String8 address, int timeout_ms) {
     ALOGV("... address = %s", c_address);
     char *context_address = (char *)calloc(BTADDR_SIZE, sizeof(char));
     const char *capabilities = "DisplayYesNo";
-    const char *agent_path = "/android/bluetooth/remote_device_agent"; 
     strlcpy(context_address, c_address, BTADDR_SIZE);  // for callback
-    return dbus_func_args_async((int)timeout_ms, onCreatePairedDeviceResult, context_address, global_adapter, DBUS_ADAPTER_IFACE, "CreatePairedDeviceOutOfBand", DBUS_TYPE_STRING, &c_address, DBUS_TYPE_OBJECT_PATH, &agent_path, DBUS_TYPE_STRING, &capabilities, DBUS_TYPE_INVALID);
+    return dbus_func_args_async((int)timeout_ms, onCreatePairedDeviceResult, context_address, global_adapter, DBUS_ADAPTER_IFACE, "CreatePairedDeviceOutOfBand", DBUS_TYPE_STRING, &c_address, DBUS_TYPE_OBJECT_PATH, &device_agent_path, DBUS_TYPE_STRING, &capabilities, DBUS_TYPE_INVALID);
 }
 
 static int getDeviceServiceChannelNative(String8 path, String8 pattern, int attr_id) {
@@ -1028,11 +994,6 @@ static bool setPairingConfirmationNative(String8 address, bool confirm, int nati
 static bool setPasskeyNative(String8 address, int passkey, int nativeData) {
     DBusMessage *msg = (DBusMessage *)nativeData;
     DBusMessage *reply = dbus_message_new_method_return(msg);
-    if (!reply) {
-        ALOGE("%s: Cannot create message reply to return Passkey code to " "D-Bus\n", __FUNCTION__);
-        dbus_message_unref(msg);
-        return FALSE;
-    } 
     dbus_message_append_args(reply, DBUS_TYPE_UINT32, (uint32_t *)&passkey, DBUS_TYPE_INVALID); 
     dbus_connection_send(global_conn, reply, NULL);
     dbus_message_unref(msg);
@@ -1045,11 +1006,6 @@ static bool setRemoteOutOfBandDataNative(String8 address, char * hash, char * ra
     DBusMessage *reply = dbus_message_new_method_return(msg);
     char *h_ptr =NULL; // env->GetByteArrayElements(hash, NULL);
     char *r_ptr =NULL; // env->GetByteArrayElements(randomizer, NULL);
-    if (!reply) {
-        ALOGE("%s: Cannot create message reply to return remote OOB data to " "D-Bus\n", __FUNCTION__);
-        dbus_message_unref(msg);
-        return FALSE;
-    } 
     dbus_message_append_args(reply, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, &h_ptr, 16, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, &r_ptr, 16, DBUS_TYPE_INVALID); 
     dbus_connection_send(global_conn, reply, NULL);
     dbus_message_unref(msg);
@@ -1065,11 +1021,6 @@ static bool setAuthorizationNative(String8 address, bool val, int nativeData) {
     } else {
         reply = dbus_message_new_error(msg, "org.bluez.Error.Rejected", "Authorization rejected");
     }
-    if (!reply) {
-        ALOGE("%s: Cannot create message reply D-Bus\n", __FUNCTION__);
-        dbus_message_unref(msg);
-        return FALSE;
-    } 
     dbus_connection_send(global_conn, reply, NULL);
     dbus_message_unref(msg);
     dbus_message_unref(reply);
@@ -1079,11 +1030,6 @@ static bool setAuthorizationNative(String8 address, bool val, int nativeData) {
 static bool setPinNative(String8 address, String8 pin, int nativeData) {
     DBusMessage *msg = (DBusMessage *)nativeData;
     DBusMessage *reply = dbus_message_new_method_return(msg);
-    if (!reply) {
-        ALOGE("%s: Cannot create message reply to return PIN code to " "D-Bus\n", __FUNCTION__);
-        dbus_message_unref(msg);
-        return FALSE;
-    } 
     const char *c_pin = pin.string();
     dbus_message_append_args(reply, DBUS_TYPE_STRING, &c_pin, DBUS_TYPE_INVALID); 
     dbus_connection_send(global_conn, reply, NULL);
@@ -1163,10 +1109,6 @@ static bool setAdapterPropertyNative(String8 key, void *value, int type) {
     dbus_bool_t reply = FALSE;
     const char *c_key = key.string();
     msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, global_adapter, DBUS_ADAPTER_IFACE, "SetProperty");
-    if (!msg) {
-        ALOGE("%s: Can't allocate new method call for GetProperties!", __FUNCTION__);
-        return FALSE;
-    } 
     dbus_message_append_args(msg, DBUS_TYPE_STRING, &c_key, DBUS_TYPE_INVALID);
     dbus_message_iter_init_append(msg, &iter);
     append_variant(&iter, type, value); 
@@ -1196,10 +1138,6 @@ static bool setDevicePropertyNative(String8 path, String8 key, void *value, int 
     const char *c_key = key.string();
     const char *c_path = path.string();
     msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, c_path, DBUS_DEVICE_IFACE, "SetProperty");
-    if (!msg) {
-        ALOGE("%s: Can't allocate new method call for device SetProperty!", __FUNCTION__);
-        return FALSE;
-    } 
     dbus_message_append_args(msg, DBUS_TYPE_STRING, &c_key, DBUS_TYPE_INVALID);
     dbus_message_iter_init_append(msg, &iter);
     append_variant(&iter, type, value); 
@@ -1378,10 +1316,6 @@ static String8 registerHealthApplicationNative(int dataType, String8 role, Strin
     DBusError err;
     dbus_error_init(&err); 
     msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, DBUS_HEALTH_MANAGER_PATH, DBUS_HEALTH_MANAGER_IFACE, "CreateApplication"); 
-    if (msg == NULL) {
-        ALOGE("Could not allocate D-Bus message object!");
-        return String8("");
-    } 
     /* append arguments */
     append_dict_args(msg, "DataType", DBUS_TYPE_UINT16, &dataType, "Role", DBUS_TYPE_STRING, &c_role, "Description", DBUS_TYPE_STRING, &c_name, "ChannelType", DBUS_TYPE_STRING, &c_channel_type, DBUS_TYPE_INVALID); 
     /* Make the call. */
@@ -1412,10 +1346,6 @@ static String8 registerSinkHealthApplicationNative(int dataType, String8 role, S
     DBusError err;
     dbus_error_init(&err); 
     msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, DBUS_HEALTH_MANAGER_PATH, DBUS_HEALTH_MANAGER_IFACE, "CreateApplication"); 
-    if (!msg) {
-        ALOGE("Could not allocate D-Bus message object!");
-        return String8("");
-    } 
     /* append arguments */
     append_dict_args(msg, "DataType", DBUS_TYPE_UINT16, &dataType, "Role", DBUS_TYPE_STRING, &c_role, "Description", DBUS_TYPE_STRING, &c_name, DBUS_TYPE_INVALID); 
     /* Make the call. */
@@ -1588,7 +1518,7 @@ static int getChannelFdNative(String8 channelPath) {
 }
 
 static const DBusObjectPathVTable agent_vtable = { NULL, agent_event_filter, NULL, NULL, NULL, NULL }; 
-static int register_agent(const char * agent_path, const char * capabilities)
+static int register_agent(const char * capabilities)
 {
     DBusMessage *msg, *reply;
     DBusError err;
@@ -1603,10 +1533,6 @@ static int register_agent(const char * agent_path, const char * capabilities)
         return -1;
     }
     msg = dbus_message_new_method_call("org.bluez", global_adapter, "org.bluez.Adapter", "RegisterAgent");
-    if (!msg) {
-        ALOGE("%s: Can't allocate new method call for agent!", __FUNCTION__);
-        return -1;
-    }
     dbus_message_append_args(msg, DBUS_TYPE_OBJECT_PATH, &agent_path, DBUS_TYPE_STRING, &capabilities, DBUS_TYPE_INVALID); 
     dbus_error_init(&err);
     reply = dbus_connection_send_with_reply_and_block(global_conn, msg, -1, &err);
@@ -1641,8 +1567,7 @@ printf("[%s:%d] global_conn %p\n", __FUNCTION__, __LINE__, global_conn);
     if (!bt_is_enabled())
         bt_enable();
     dbus_error_init(&err);
-    const char *agent_path = "/android/bluetooth/agent";
-    if (register_agent(agent_path, "DisplayYesNo") < 0) {
+    if (register_agent("DisplayYesNo") < 0) {
         dbus_connection_unregister_object_path (global_conn, agent_path);
 printf("[%s:%d] registration failed\n", __FUNCTION__, __LINE__);
         exit(1);
@@ -1661,15 +1586,7 @@ printf ("pathname %s\n", global_adapter);
     const char *name;
 printf("[%s:%d]\n", __FUNCTION__, __LINE__);
     dbus_error_init(&err); 
-    /* Compose the command */
     msg = dbus_message_new_method_call(BLUEZ_DBUS_BASE_IFC, global_adapter, DBUS_ADAPTER_IFACE, "StartDiscovery"); 
-    if (msg == NULL) {
-        if (dbus_error_is_set(&err)) {
-            LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
-        }
-        exit(1);
-    } 
-    /* Send the command. */
     reply = dbus_connection_send_with_reply_and_block(global_conn, msg, -1, &err);
     if (dbus_error_is_set(&err)) {
          LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, msg);
