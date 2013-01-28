@@ -244,7 +244,6 @@ static void removematch(void)
 }
 
 void dbusWakeup(void *data) {
-printf("[%s:%d]\n", __FUNCTION__, __LINE__);
     char control = EVENT_LOOP_WAKEUP;
     write(controlFdW, &control, sizeof(char));
 }
@@ -327,6 +326,8 @@ static DBusHandlerResult event_filter(DBusConnection *conn, DBusMessage *msg, vo
     case BSIG_NOT_SIGNAL:
         ALOGV("%s: not interested (not a signal).", __FUNCTION__);
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+    case BSIG_NameAcquired:
+        break;
     case BSIG_AdapterDeviceFound:
         if (dbus_message_iter_init(msg, &iter)) {
             dbus_message_iter_get_basic(&iter, &c_address);
@@ -334,7 +335,7 @@ static DBusHandlerResult event_filter(DBusConnection *conn, DBusMessage *msg, vo
                 rc = parse_properties(prop, &iter); // remote_device_properties);
             int indexaddr = prop.indexOfKey(String8("Address"));
             if (indexaddr >= 0)
-                printf("[%s:%d] Address %s\n", __FUNCTION__, __LINE__, prop.valueAt(indexaddr).string());
+                ; //printf("[%s:%d] Address %s\n", __FUNCTION__, __LINE__, prop.valueAt(indexaddr).string());
             dumpprop(prop, "adapterfound");
         }
         if (rc)
@@ -571,7 +572,6 @@ printf("[%s:%d]\n", __FUNCTION__, __LINE__);
             if (pollData[i].fd == controlFdR) {
                 process_control();
             } else {
-printf("[%s:%d]\n", __FUNCTION__, __LINE__);
                 short events = pollData[i].revents;
                 unsigned int flags = unix_events_to_dbus_flags(events);
                 dbus_watch_handle(watchData[i], flags);
@@ -1426,12 +1426,11 @@ dumpprop(prop, "mainchan");
 }
 
 static String8 getChannelApplicationNative(String8 channelPath) {
-    const char *c_channel_path = channelPath.string();
 BTProperties prop;
     int rc = -1;
     DBusError err;
     dbus_error_init(&err); 
-    DBusMessage *reply = dbus_func_args(c_channel_path, DBUS_HEALTH_CHANNEL_IFACE, "GetProperties", DBUS_TYPE_INVALID);
+    DBusMessage *reply = dbus_func_args(channelPath.string(), DBUS_HEALTH_CHANNEL_IFACE, "GetProperties", DBUS_TYPE_INVALID);
     if (!reply) {
         if (dbus_error_is_set(&err)) {
             LOG_AND_FREE_DBUS_ERROR(&err);
@@ -1459,20 +1458,18 @@ dumpprop(prop, "chanapp");
 }
 
 static bool releaseChannelFdNative(String8 channelPath) {
-    const char *c_channel_path = channelPath.string();
     DBusError err;
     dbus_error_init(&err);
-    DBusMessage *reply = dbus_func_args(c_channel_path, DBUS_HEALTH_CHANNEL_IFACE, "Release", DBUS_TYPE_INVALID);
+    DBusMessage *reply = dbus_func_args(channelPath.string(), DBUS_HEALTH_CHANNEL_IFACE, "Release", DBUS_TYPE_INVALID);
     return reply ? TRUE : FALSE;
 }
 
 static int getChannelFdNative(String8 channelPath) {
-    const char *c_channel_path = channelPath.string();
     int32_t fd;
     DBusError err;
     dbus_error_init(&err);
 
-    DBusMessage *reply = dbus_func_args(c_channel_path, DBUS_HEALTH_CHANNEL_IFACE, "Acquire", DBUS_TYPE_INVALID);
+    DBusMessage *reply = dbus_func_args(channelPath.string(), DBUS_HEALTH_CHANNEL_IFACE, "Acquire", DBUS_TYPE_INVALID);
     if (!reply) {
         if (dbus_error_is_set(&err)) {
             LOG_AND_FREE_DBUS_ERROR(&err);

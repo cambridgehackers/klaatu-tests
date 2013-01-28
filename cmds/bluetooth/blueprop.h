@@ -14,6 +14,7 @@ static const char *signames[] = {
     NULL};
 
 #define SIGNITEMS \
+    SIGDEF("org.freedesktop.DBus", "NameAcquired", BSIG_NameAcquired) \
     SIGDEF("org.bluez.Adapter", "DeviceFound", BSIG_AdapterDeviceFound) \
     SIGDEF("org.bluez.Adapter", "DeviceDisappeared", BSIG_AdapterDeviceDisappeared) \
     SIGDEF("org.bluez.Adapter", "DeviceCreated", BSIG_AdapterDeviceCreated) \
