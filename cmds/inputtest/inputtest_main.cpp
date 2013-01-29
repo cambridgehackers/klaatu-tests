@@ -7,6 +7,11 @@
 #include <input/EventHub.h>
 
 using namespace android;
+#if defined(SHORT_PLATFORM_VERSION) && (SHORT_PLATFORM_VERSION == 40)
+#define CODE_FIELD scanCode
+#else
+#define CODE_FIELD code
+#endif
 
 
 // -------------------------------------------------------------------
@@ -113,12 +118,12 @@ static const char *s_abs_name[] = {
 
 void dump_event(const RawEvent& ev)
 {
-    if (ev.type == EV_ABS && ev.code < ABS_CNT)
+    if (ev.type == EV_ABS && ev.CODE_FIELD < ABS_CNT)
 	printf("%lld device_id=%d %s 0x%x value=%d\n", 
-	       ev.when, ev.deviceId, s_abs_name[ev.code], ev.code, ev.value);
+	       ev.when, ev.deviceId, s_abs_name[ev.CODE_FIELD], ev.CODE_FIELD, ev.value);
     else 
 	printf("%lld device_id=%d type=0x%x code=%d value=%d\n", 
-	       ev.when, ev.deviceId, ev.type, ev.code, ev.value);
+	       ev.when, ev.deviceId, ev.type, ev.CODE_FIELD, ev.value);
 }
 
 struct ClassToName {
@@ -179,8 +184,11 @@ int main(int argc, char **argv)
 	    if (show_devices) {
 		if (buffer[i].type == EventHubInterface::DEVICE_ADDED) {
 		    int32_t id = buffer[i].deviceId;
+#if defined(SHORT_PLATFORM_VERSION) && (SHORT_PLATFORM_VERSION == 40)
+#else
 		    InputDeviceIdentifier identifier = hub->getDeviceIdentifier(id);
 		    printf("Device id=%d, name='%s' [", id, identifier.name.string());
+#endif
 		    dump_class(hub->getDeviceClasses(id));
 		    printf("]\n");
 
