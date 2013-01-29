@@ -23,7 +23,7 @@
 
 #include <binder/ProcessState.h>
 #include <camera/Camera.h>
-#include <gui/Surface.h>
+#include <Surface.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/AudioPlayer.h>
 #include <media/stagefright/CameraSource.h>
@@ -35,7 +35,7 @@
 #include <media/stagefright/OMXCodec.h>
 #include <media/MediaPlayerInterface.h>
 #include <media/mediarecorder.h>
-#include <gui/SurfaceComposerClient.h>
+#include <SurfaceComposerClient.h>
 
 using namespace android;
 
@@ -144,7 +144,7 @@ public:
         sp<SurfaceComposerClient> surfaceComposerClient = new SurfaceComposerClient();
         String8 name("cameraPreview");
         sp<SurfaceControl> surfaceControl =
-            surfaceComposerClient->createSurface(name, params.width, params.height, PIXEL_FORMAT_RGB_888);
+            surfaceComposerClient->createSurface(name, 0, params.width, params.height, PIXEL_FORMAT_RGB_888);
 
         SurfaceComposerClient::openGlobalTransaction();
         surfaceControl->setLayer(0x40000000);
