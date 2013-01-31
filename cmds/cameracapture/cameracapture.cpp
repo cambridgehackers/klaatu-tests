@@ -39,6 +39,7 @@
 
 using namespace android;
 
+static sp<SurfaceControl> surfaceControl;
 // Print usage showing how to use this utility to record videos
 static void usage(const char *me) {
     fprintf(stderr, "usage: %s\n", me);
@@ -144,10 +145,10 @@ public:
         sp<SurfaceComposerClient> surfaceComposerClient = new SurfaceComposerClient();
         String8 name("cameraPreview");
 #if defined(SHORT_PLATFORM_VERSION) && (SHORT_PLATFORM_VERSION == 42)
-        sp<SurfaceControl> surfaceControl =
+        surfaceControl =
             surfaceComposerClient->createSurface(name, params.width, params.height, PIXEL_FORMAT_RGB_888);
 #else
-        sp<SurfaceControl> surfaceControl =
+        surfaceControl =
             surfaceComposerClient->createSurface(name, 0, params.width, params.height, PIXEL_FORMAT_RGB_888);
 #endif
 
