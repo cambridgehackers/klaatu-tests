@@ -15,6 +15,8 @@ LOCAL_C_INCLUDES:= \
 	$(TOP)/frameworks/native/include/gui \
 	$(TOP)/frameworks/base/include/media/stagefright/openmax \
 	$(TOP)/frameworks/base/include/surfaceflinger
+SVERSION:=$(subst ., ,$(PLATFORM_VERSION))
+LOCAL_CFLAGS += -DSHORT_PLATFORM_VERSION=$(word 1,$(SVERSION))$(word 2,$(SVERSION))
 
 LOCAL_CFLAGS += -Wno-multichar
 

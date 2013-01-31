@@ -143,8 +143,13 @@ public:
     void startPreview(const Params &params) {
         sp<SurfaceComposerClient> surfaceComposerClient = new SurfaceComposerClient();
         String8 name("cameraPreview");
+#if defined(SHORT_PLATFORM_VERSION) && (SHORT_PLATFORM_VERSION == 42)
+        sp<SurfaceControl> surfaceControl =
+            surfaceComposerClient->createSurface(name, params.width, params.height, PIXEL_FORMAT_RGB_888);
+#else
         sp<SurfaceControl> surfaceControl =
             surfaceComposerClient->createSurface(name, 0, params.width, params.height, PIXEL_FORMAT_RGB_888);
+#endif
 
         SurfaceComposerClient::openGlobalTransaction();
         surfaceControl->setLayer(0x40000000);
