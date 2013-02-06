@@ -13,9 +13,11 @@ LOCAL_C_INCLUDES += external/bluetooth/bluez/lib system/bluetooth/bluedroid/incl
 LOCAL_SHARED_LIBRARIES := libutils libbluedroid libdbus
 
 ifeq ($(PLATFORM_VERSION),4.1.2)
+ifeq ($(BOARD_HAVE_BLUETOOTH),true)
 include $(BUILD_EXECUTABLE)
 # Normally optional modules are not installed unless they show
 # up in the PRODUCT_PACKAGES list
 
 ALL_DEFAULT_INSTALLED_MODULES += $(TARGET_OUT)/bin/bluetest
+endif
 endif
