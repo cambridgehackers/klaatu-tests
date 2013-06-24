@@ -13,5 +13,5 @@ include $(BUILD_EXECUTABLE)
 # Normally optional modules are not installed unless they show
 # up in the PRODUCT_PACKAGES list
 
-ALL_DEFAULT_INSTALLED_MODULES += $(TARGET_OUT)/bin/sensortest
+ALL_DEFAULT_INSTALLED_MODULES += $(TARGET_OUT)/bin/sensortest-ndk
 
