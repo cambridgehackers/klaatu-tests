@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <string.h>
+#include <cstdlib>
 #include <android/sensor.h>
 #include <android/looper.h>
 
@@ -41,6 +43,31 @@ int main()
 	if((accelerometerSensor = ASensorManager_getDefaultSensor(sensorManager, ASENSOR_TYPE_ACCELEROMETER)) == NULL)
 		printf("accelerometerSensor NULL\n");
 
+	/* get sensor list */
+	ASensorList list;
+
+	int num = ASensorManager_getSensorList(ASensorManager_getInstance(), &list);
+	int j;
+		char* buffer = (char*)calloc(num, 128);
+
+
+
+		for (j = 0; j < num; j++) {
+			ASensorRef sensor = list[j];
+			int type = ASensor_getType(sensor);
+
+			const char* id = ASensor_getName(sensor);
+			strcat(buffer,"* ");
+			strcat(buffer,id);
+			strcat(buffer,"\n");
+
+		}
+
+
+		printf("Sensors present:\n%s\n",buffer);
+
+
+
 	/* LOOPER_ID_USER = 3 */
 	if((sensorEventQueue = ASensorManager_createEventQueue(sensorManager,
 	            looper, 3, get_sensor_events, sensor_data)) == NULL)
@@ -62,7 +89,7 @@ int main()
 	int events = 0;
 	int fd = 0;
 
-	printf("begin polling\n");
+	printf("begin accelerometer polling\n");
 	ident = ALooper_pollAll(-1, &fd, &events, &sensor_data);
 
 	return 0;
