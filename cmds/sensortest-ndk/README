@@ -1,2 +1,1 @@
 This is a simple program to test sensor access using the NDK API (libandroid).
-Currently, it only accesses the accelerometer.
