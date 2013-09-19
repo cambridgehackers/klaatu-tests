@@ -40,6 +40,7 @@ static int get_sensor_events(int fd, int events, void* data) {
                  event.distance, event.timestamp);
         }
   }
+  fflush(stdout);
   /* return 1 to continue getting callbacks */
   return 1;
 }
