@@ -44,7 +44,6 @@ static sp<SurfaceControl> surfaceControl;
 static void usage(const char *me) {
     fprintf(stderr, "usage: %s\n", me);
     fprintf(stderr, "       -h(elp)\n");
-    fprintf(stderr, "       -o outputfile  (default: /sdcard/output.mp4)\n");
     fprintf(stderr, "       -a hostname to which to post video (default: unspecified)\n");
     fprintf(stderr, "       -p port to which to post video (default: 80)\n");
     fprintf(stderr, "       -b bit rate in bits per second (default: 300000)\n");
@@ -55,7 +54,8 @@ static void usage(const char *me) {
     fprintf(stderr, "       -t height in pixels (default: 480)\n");
     fprintf(stderr, "       -v video codec: [0] H264 [1] MPEG_4_SP [2] H263 (default: 0)\n");
     fprintf(stderr, "       -c container format: [0] MPEG4 [1] DASH (default: 0)\n");
-    fprintf(stderr, "The output file is /sdcard/output.mp4\n");
+    fprintf(stderr, "       -s <stream_name> name of output, up to 4 may be specified\n");
+    fprintf(stderr, "The output file is /sdcard/<stream_name>\n");
     exit(1);
 }
 
@@ -126,7 +126,13 @@ public:
     
     void connect() {
         status_t err = OK;
+#if (SHORT_PLATFORM_VERSION == 43)
+        String16 clientName((char16_t *)NULL, 0);
+        mCamera = Camera::connect(mCameraNumber, clientName,
+                                  Camera::USE_CALLING_UID);
+#else
         mCamera = Camera::connect(mCameraNumber);
+#endif
         fprintf(stderr, "%s:%d connected %d mCamera=%p\n", __FILE__, __LINE__, mCameraNumber, mCamera.get());
         mICamera = mCamera->remote();
         fprintf(stderr, "%s:%d remoted %d mICamera=%p\n", __FILE__, __LINE__, mCameraNumber, mICamera.get());
@@ -144,7 +150,7 @@ public:
     void startPreview(const Params &params) {
         sp<SurfaceComposerClient> surfaceComposerClient = new SurfaceComposerClient();
         String8 name("cameraPreview");
-#if defined(SHORT_PLATFORM_VERSION) && (SHORT_PLATFORM_VERSION == 42)
+#if defined(SHORT_PLATFORM_VERSION) && (SHORT_PLATFORM_VERSION >= 42)
         surfaceControl =
             surfaceComposerClient->createSurface(name, params.width, params.height, PIXEL_FORMAT_RGB_888);
 #else
@@ -157,9 +163,16 @@ public:
         SurfaceComposerClient::closeGlobalTransaction();
 
         mSurface = surfaceControl->getSurface();
-
+#if SHORT_PLATFORM_VERSION == 43
+        sp<IGraphicBufferProducer> gbp;
+        if (mSurface != NULL) {
+            gbp = mSurface->getIGraphicBufferProducer();
+        }
+        mCamera->setPreviewTexture(gbp);
+#else
         mCamera->setPreviewDisplay(mSurface);
         mCamera->startPreview();
+#endif
     }
 
     void startRecording(const Params &params, int fd) {
@@ -196,7 +209,11 @@ public:
 
         recorder->setOutputFile(fd, 0, 0);
 
+#if SHORT_PLATFORM_VERSION == 43
+        recorder->setPreviewSurface(mSurface->getIGraphicBufferProducer());
+#else
         recorder->setPreviewSurface(mSurface);
+#endif
 
         recorder->setListener(new MyMediaRecorderListener());
 
@@ -237,7 +254,6 @@ int main(int argc, char **argv) {
         CONTAINER_DASH = 1
     };
     output_format output_format = OUTPUT_FORMAT_THREE_GPP;
-    const char *fileName = "/sdcard/output.mp4";
     const char *hostname = 0;
     const char *streamNames[4];
     sp<CameraRecorder> recorders[4];
@@ -246,7 +262,7 @@ int main(int argc, char **argv) {
 
     android::ProcessState::self()->startThreadPool();
     int res;
-    while ((res = getopt(argc, argv, "a:b:c:f:i:n:w:t:l:p:s:v:h")) >= 0) {
+    while ((res = getopt(argc, argv, "a:b:c:f:i:n:w:t:p:s:v:h")) >= 0) {
         switch (res) {
             case 'b':
             {
@@ -275,12 +291,6 @@ int main(int argc, char **argv) {
             case 'n':
             {
                 nFrames = atoi(optarg);
-                break;
-            }
-
-            case 'o':
-            {
-                fileName = optarg;
                 break;
             }
 
