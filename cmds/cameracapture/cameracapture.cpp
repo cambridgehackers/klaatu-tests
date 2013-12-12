@@ -126,7 +126,7 @@ public:
     
     void connect() {
         status_t err = OK;
-#if (SHORT_PLATFORM_VERSION == 43)
+#if (SHORT_PLATFORM_VERSION >= 43)
         String16 clientName((char16_t *)NULL, 0);
         mCamera = Camera::connect(mCameraNumber, clientName,
                                   Camera::USE_CALLING_UID);
@@ -163,12 +163,16 @@ public:
         SurfaceComposerClient::closeGlobalTransaction();
 
         mSurface = surfaceControl->getSurface();
-#if SHORT_PLATFORM_VERSION == 43
+#if (SHORT_PLATFORM_VERSION >= 43)
         sp<IGraphicBufferProducer> gbp;
         if (mSurface != NULL) {
             gbp = mSurface->getIGraphicBufferProducer();
         }
+#if (SHORT_PLATFORM_VERSION >= 44)
+        mCamera->setPreviewTarget(gbp);
+#else
         mCamera->setPreviewTexture(gbp);
+#endif
 #else
         mCamera->setPreviewDisplay(mSurface);
         mCamera->startPreview();
@@ -209,7 +213,7 @@ public:
 
         recorder->setOutputFile(fd, 0, 0);
 
-#if SHORT_PLATFORM_VERSION == 43
+#if (SHORT_PLATFORM_VERSION >= 43)
         recorder->setPreviewSurface(mSurface->getIGraphicBufferProducer());
 #else
         recorder->setPreviewSurface(mSurface);
